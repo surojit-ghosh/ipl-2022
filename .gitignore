@@ -1,17 +1,26 @@
-﻿# deps / build
+﻿# dependencies / build
 node_modules
 dist
 .next
 out
+build
 coverage
 *.tsbuildinfo
+.pnp
+.pnp.*
+.yarn/*
 
 # env / secrets
 .env
 .env.*
 !.env.example
 
-# tests / playwright
+# framework / deployment
+next-env.d.ts
+.vercel
+*.pem
+
+# tests
 playwright-report
 test-results
 blob-report

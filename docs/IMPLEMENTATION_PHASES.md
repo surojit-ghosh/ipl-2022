@@ -863,7 +863,7 @@ Update this table as work proceeds. Link to a test run, CI job, screenshot, repo
 | ---: | --- | --- | --- |
 | 0 | Product/architecture | Decisions, design, ADRs | Not started |
 | 1 | Platform | Clean-start and browser smoke evidence | Not started |
-| 2 | Data model | Empty-to-head migration and parser tests | Not started |
+| 2 | Data model | Empty-to-head migration and parser tests | Proven 2026-08-30: `prisma migrate deploy` `0001_init` on Compose `postgres:16-alpine` (host 5433); `psql` counted 25 public tables plus CHECK constraints; `pnpm --filter @aiko/api test` 17 passed; `pnpm --filter @aiko/api typecheck` passed |
 | 3 | Data import | Full import report and rerun counts | Not started |
 | 4 | API catalog | Swagger, contract tests, generated-client check | Not started |
 | 5 | Match API | Scorecard reconciliation and endpoint suite | Not started |
