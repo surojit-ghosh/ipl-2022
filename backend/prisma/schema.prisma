@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Competition {
+  id           Int      @id
+  title        String
+  abbreviation String?
+  type         String?
+  category     String?
+  matchFormat  String?
+  seasons      Season[]
+  matches      Match[]
+}
+
+model Season {
+  id            Int                 @id @default(autoincrement())
+  year          Int                 @unique
+  slug          String              @unique
+  competitionId Int
+  competition   Competition         @relation(fields: [competitionId], references: [id])
+  teams         SeasonTeam[]
+  squadMembers  SeasonSquadMember[]
+  matches       Match[]
+  standings     Standing[]
+  teamStats     TeamStatSnapshot[]
+}
+
+model Team {
+  id              Int                 @id
+  name            String
+  abbreviation    String?
+  alternateName   String?
+  type            String?
+  country         String?
+  logoUrl         String?
+  thumbnailUrl    String?
+  seasonTeams     SeasonTeam[]
+  squadMembers    SeasonSquadMember[]
+  matchesAsTeamA  Match[]             @relation("TeamAMatches")
+  matchesAsTeamB  Match[]             @relation("TeamBMatches")
+  wins            Match[]             @relation("WinningMatches")
+  tossWins        Match[]             @relation("TossWinningMatches")
+  inningsBatting  Inning[]            @relation("BattingTeamInnings")
+  inningsFielding Inning[]            @relation("FieldingTeamInnings")
+  standings       Standing[]
+  teamStats       TeamStatSnapshot[]
+}
+
+model SeasonTeam {
+  seasonId Int
+  teamId   Int
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([seasonId, teamId])
+  @@index([teamId])
+}
+
+model Player {
+  id                 Int                 @id
+  name               String
+  shortName          String?
+  firstName          String?
+  lastName           String?
+  birthDate          DateTime?
+  birthPlace         String?
+  country            String?
+  nationality        String?
+  playingRole        String?
+  battingStyle       String?
+  bowlingStyle       String?
+  fieldingPosition   String?
+  logoUrl            String?
+  thumbnailUrl       String?
+  seasonSquadMembers SeasonSquadMember[]
+  awards             Match[]             @relation("PlayerOfMatch")
+  battingScores      BattingScore[]
+  bowlingFigures     BowlingFigure[]
+  fieldingFigures    FieldingFigure[]
+  fallOfWickets      FallOfWicket[]
+}
+
+model SeasonSquadMember {
+  seasonId Int
+  teamId   Int
+  playerId Int
+  role     String?
+  season   Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team     Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player   Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([seasonId, teamId, playerId])
+  @@index([playerId])
+}
+
+model Venue {
+  id       Int     @id
+  name     String
+  location String?
+  country  String?
+  timezone String?
+  matches  Match[]
+}
+
+model Match {
+  id              Int         @id
+  competitionId   Int
+  seasonId        Int
+  teamAId         Int
+  teamBId         Int
+  venueId         Int?
+  winningTeamId   Int?
+  tossWinnerId    Int?
+  playerOfMatchId Int?
+  title           String
+  shortTitle      String?
+  subtitle        String?
+  matchNumber     String?
+  format          String?
+  status          Int?
+  statusText      String?
+  statusNote      String?
+  resultType      Int?
+  winMargin       String?
+  tossDecision    Int?
+  startAt         DateTime?
+  endAt           DateTime?
+  raw             Json?
+  competition     Competition @relation(fields: [competitionId], references: [id])
+  season          Season      @relation(fields: [seasonId], references: [id])
+  teamA           Team        @relation("TeamAMatches", fields: [teamAId], references: [id])
+  teamB           Team        @relation("TeamBMatches", fields: [teamBId], references: [id])
+  venue           Venue?      @relation(fields: [venueId], references: [id])
+  winningTeam     Team?       @relation("WinningMatches", fields: [winningTeamId], references: [id])
+  tossWinner      Team?       @relation("TossWinningMatches", fields: [tossWinnerId], references: [id])
+  playerOfMatch   Player?     @relation("PlayerOfMatch", fields: [playerOfMatchId], references: [id])
+  innings         Inning[]
+
+  @@index([seasonId, startAt])
+  @@index([teamAId])
+  @@index([teamBId])
+  @@index([winningTeamId])
+}
+
+model Inning {
+  id              Int              @id
+  matchId         Int
+  number          Int
+  name            String?
+  status          Int?
+  isSuperOver     Boolean          @default(false)
+  result          Int?
+  battingTeamId   Int
+  fieldingTeamId  Int
+  scores          String?
+  overs           String?
+  target          Int?
+  match           Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  battingTeam     Team             @relation("BattingTeamInnings", fields: [battingTeamId], references: [id])
+  fieldingTeam    Team             @relation("FieldingTeamInnings", fields: [fieldingTeamId], references: [id])
+  battingScores   BattingScore[]
+  bowlingFigures  BowlingFigure[]
+  fieldingFigures FieldingFigure[]
+  fallOfWickets   FallOfWicket[]
+  extras          InningExtra?
+
+  @@index([matchId, number])
+}
+
+model BattingScore {
+  id              Int      @id @default(autoincrement())
+  inningId        Int
+  playerId        Int
+  isBatting       Boolean?
+  position        String?
+  role            String?
+  runs            Int?
+  ballsFaced      Int?
+  fours           Int?
+  sixes           Int?
+  strikeRate      Float?
+  dismissal       String?
+  howOut          String?
+  bowlerId        Int?
+  firstFielderId  Int?
+  secondFielderId Int?
+  thirdFielderId  Int?
+  inning          Inning   @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  player          Player   @relation(fields: [playerId], references: [id])
+
+  @@unique([inningId, playerId])
+  @@index([playerId])
+}
+
+model BowlingFigure {
+  id           Int      @id @default(autoincrement())
+  inningId     Int
+  playerId     Int
+  isBowling    Boolean?
+  position     String?
+  overs        String?
+  maidens      Int?
+  runsConceded Int?
+  wickets      Int?
+  noBalls      Int?
+  wides        Int?
+  economy      Float?
+  inning       Inning   @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  player       Player   @relation(fields: [playerId], references: [id])
+
+  @@unique([inningId, playerId])
+  @@index([playerId])
+}
+
+model FieldingFigure {
+  id            Int      @id @default(autoincrement())
+  inningId      Int
+  playerId      Int
+  catches       Int?
+  runOutThrower Int?
+  runOutCatcher Int?
+  directHits    Int?
+  stumpings     Int?
+  substitute    Boolean?
+  inning        Inning   @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  player        Player   @relation(fields: [playerId], references: [id])
+
+  @@unique([inningId, playerId])
+  @@index([playerId])
+}
+
+model FallOfWicket {
+  id               Int     @id @default(autoincrement())
+  inningId         Int
+  wicketNumber     Int
+  playerId         Int?
+  runs             Int?
+  balls            Int?
+  dismissal        String?
+  howOut           String?
+  scoreAtDismissal Int?
+  oversAtDismissal String?
+  bowlerId         Int?
+  inning           Inning  @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  player           Player? @relation(fields: [playerId], references: [id])
+
+  @@unique([inningId, wicketNumber])
+}
+
+model InningExtra {
+  id       Int    @id @default(autoincrement())
+  inningId Int    @unique
+  byes     Int?
+  legByes  Int?
+  wides    Int?
+  noBalls  Int?
+  penalty  Int?
+  total    Int?
+  inning   Inning @relation(fields: [inningId], references: [id], onDelete: Cascade)
+}
+
+model Standing {
+  id              Int     @id @default(autoincrement())
+  seasonId        Int
+  teamId          Int
+  position        Int
+  played          Int?
+  wins            Int?
+  losses          Int?
+  draws           Int?
+  noResults       Int?
+  oversFor        String?
+  runsFor         Int?
+  oversAgainst    String?
+  runsAgainst     Int?
+  netRunRate      Float?
+  points          Int?
+  lastFiveMatches String?
+  lastFiveResults String?
+  season          Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team            Team    @relation(fields: [teamId], references: [id])
+
+  @@unique([seasonId, teamId])
+  @@index([seasonId, position])
+}
+
+model TeamStatSnapshot {
+  id       String @id @default(cuid())
+  seasonId Int
+  teamId   Int
+  metric   String
+  values   Json
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team     Team   @relation(fields: [teamId], references: [id])
+
+  @@unique([seasonId, teamId, metric])
+  @@index([metric])
+}
