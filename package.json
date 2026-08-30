@@ -1,0 +1,21 @@
+﻿{
+  "name": "aiko",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
+    "dev:api": "pnpm --filter @aiko/api dev",
+    "dev:web": "pnpm --filter @aiko/web dev"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
