@@ -17,7 +17,7 @@ services:
   migrate:
     build:
       context: ./backend
-      target: build
+      target: migrate
     env_file:
       - ./backend/.env
     command: ["pnpm", "exec", "prisma", "migrate", "deploy"]
@@ -26,17 +26,6 @@ services:
         condition: service_healthy
     restart: "no"
 
-  seed:
-    build:
-      context: ./backend
-      target: build
-    env_file:
-      - ./backend/.env
-    command: ["pnpm", "db:seed"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    restart: "no"
 
   backend:
     build:
@@ -44,7 +33,7 @@ services:
     env_file:
       - ./backend/.env
     depends_on:
-      seed:
+      migrate:
         condition: service_completed_successfully
     expose:
       - "3001"

@@ -11,6 +11,10 @@ COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 RUN pnpm db:generate
 RUN pnpm build
+
+FROM build AS migrate
+
+FROM build AS production
 RUN pnpm prune --prod
 
 FROM node:24.20.0-alpine3.24
@@ -18,8 +22,8 @@ FROM node:24.20.0-alpine3.24
 WORKDIR /app
 RUN corepack enable
 
-COPY --from=build /app/package.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
+COPY --from=production /app/package.json ./
+COPY --from=production /app/node_modules ./node_modules
+COPY --from=production /app/dist ./dist
 
 CMD ["pnpm", "start"]
