@@ -49,6 +49,7 @@ model Team {
   inningsFielding Inning[]            @relation("FieldingTeamInnings")
   standings       Standing[]
   teamStats       TeamStatSnapshot[]
+  playingXis      MatchPlayingXi[]
 }
 
 model SeasonTeam {
@@ -83,6 +84,14 @@ model Player {
   bowlingFigures     BowlingFigure[]
   fieldingFigures    FieldingFigure[]
   fallOfWickets      FallOfWicket[]
+  commentaryAsBatter CommentaryEvent[] @relation("CommentaryBatter")
+  commentaryAsBowler CommentaryEvent[] @relation("CommentaryBowler")
+  wagonShotsAsBatter WagonShot[] @relation("WagonBatter")
+  wagonShotsAsBowler WagonShot[] @relation("WagonBowler")
+  careerBatting     PlayerCareerBatting[]
+  careerBowling     PlayerCareerBowling[]
+  playingXis        MatchPlayingXi[]
+  matchAwards       MatchAward[]
 }
 
 model SeasonSquadMember {
@@ -140,6 +149,11 @@ model Match {
   tossWinner      Team?       @relation("TossWinningMatches", fields: [tossWinnerId], references: [id])
   playerOfMatch   Player?     @relation("PlayerOfMatch", fields: [playerOfMatchId], references: [id])
   innings         Inning[]
+  officials       MatchOfficial[]
+  awards          MatchAward[]
+  playingXi       MatchPlayingXi[]
+  commentary      CommentaryEvent[]
+  wagonShots      WagonShot[]
 
   @@index([seasonId, startAt])
   @@index([teamAId])
@@ -168,6 +182,8 @@ model Inning {
   fieldingFigures FieldingFigure[]
   fallOfWickets   FallOfWicket[]
   extras          InningExtra?
+  commentary      CommentaryEvent[]
+  wagonShots      WagonShot[]
 
   @@index([matchId, number])
 }
@@ -300,4 +316,179 @@ model TeamStatSnapshot {
 
   @@unique([seasonId, teamId, metric])
   @@index([metric])
+}
+
+model MatchOfficial {
+  id          Int     @id @default(autoincrement())
+  matchId     Int
+  role        String
+  name        String
+  country     String?
+  isTvUmpire  Boolean @default(false)
+  position    Int
+  match       Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, role, position])
+  @@index([matchId])
+}
+
+model MatchAward {
+  id         Int     @id @default(autoincrement())
+  matchId    Int
+  awardType  String
+  playerId   Int?
+  sourceName String?
+  match      Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player     Player? @relation(fields: [playerId], references: [id])
+
+  @@unique([matchId, awardType])
+  @@index([playerId])
+}
+
+model MatchPlayingXi {
+  id            Int     @id @default(autoincrement())
+  matchId       Int
+  teamId        Int
+  playerId      Int
+  battingOrder  Int?
+  isDidNotBat   Boolean @default(false)
+  match         Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team          Team    @relation(fields: [teamId], references: [id])
+  player        Player  @relation(fields: [playerId], references: [id])
+
+  @@unique([matchId, teamId, playerId])
+  @@index([playerId, matchId])
+}
+
+model CommentaryEvent {
+  id             Int      @id @default(autoincrement())
+  sourceEventId  Int?
+  matchId        Int
+  inningId       Int
+  eventType      String
+  sourceOver     Int?
+  sourceBall     Int?
+  sequenceNo     Int
+  occurredAt     DateTime?
+  batterId       Int?
+  bowlerId       Int?
+  totalRuns      Int?
+  batRuns        Int?
+  noBallRuns     Int?
+  wideRuns       Int?
+  byeRuns        Int?
+  legByeRuns     Int?
+  isNoBall       Boolean?
+  isWide         Boolean?
+  isFour         Boolean?
+  isSix          Boolean?
+  isWicket       Boolean?
+  commentary     String?
+  detailText     String?
+  match          Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  inning         Inning   @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  batter         Player?  @relation("CommentaryBatter", fields: [batterId], references: [id])
+  bowler         Player?  @relation("CommentaryBowler", fields: [bowlerId], references: [id])
+
+  @@unique([inningId, sequenceNo])
+  @@index([matchId, inningId, sequenceNo])
+  @@index([sourceEventId])
+}
+
+model WagonShot {
+  id          Int      @id @default(autoincrement())
+  matchId     Int
+  inningId    Int
+  sequenceNo  Int
+  batterId    Int?
+  bowlerId    Int?
+  sourceOver  Float?
+  batRuns     Int?
+  teamRuns    Int?
+  x           Float?
+  y           Float?
+  zoneId      Int?
+  zoneName    String?
+  eventName   String?
+  uniqueOver  Float?
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  inning      Inning   @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  batter      Player?  @relation("WagonBatter", fields: [batterId], references: [id])
+  bowler      Player?  @relation("WagonBowler", fields: [bowlerId], references: [id])
+
+  @@unique([inningId, sequenceNo])
+  @@index([matchId, inningId, batterId])
+}
+
+model PlayerCareerBatting {
+  id             Int      @id @default(autoincrement())
+  playerId       Int
+  format         String
+  matches        Int?
+  innings        Int?
+  notOuts        Int?
+  runs           Int?
+  balls          Int?
+  highest        Int?
+  hundreds       Int?
+  fifties        Int?
+  fours          Int?
+  sixes          Int?
+  catches        Int?
+  stumpings      Int?
+  sourceAverage  Float?
+  sourceStrike   Float?
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, format])
+  @@index([format])
+}
+
+model PlayerCareerBowling {
+  id             Int      @id @default(autoincrement())
+  playerId       Int
+  format         String
+  matches        Int?
+  innings        Int?
+  balls          Int?
+  overs          Float?
+  runs           Int?
+  wickets        Int?
+  bestInning     String?
+  bestMatch      String?
+  fours          Int?
+  fives          Int?
+  tens           Int?
+  hatTricks      Int?
+  maidens        Int?
+  sourceEconomy  Float?
+  sourceAverage  Float?
+  sourceStrike   Float?
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, format])
+  @@index([format])
+}
+
+model SourceFile {
+  id             Int              @id @default(autoincrement())
+  relativePath   String           @unique
+  sourceFamily   String
+  sha256         String
+  byteSize       Int
+  recordCount    Int?
+  status         String
+  snapshot       SourceSnapshot?
+}
+
+model SourceSnapshot {
+  id           Int        @id @default(autoincrement())
+  sourceFileId Int        @unique
+  snapshotType String
+  matchId      Int?
+  payload      Json
+  sourceFile   SourceFile @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotType])
+  @@index([matchId])
 }

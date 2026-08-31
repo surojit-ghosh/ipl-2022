@@ -7,6 +7,8 @@ services:
       POSTGRES_DB: aiko
     volumes:
       - aiko_pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aiko -d aiko"]
       interval: 5s
@@ -24,6 +26,7 @@ services:
         condition: service_healthy
     ports:
       - "3001:3001"
+    command: ["node", "scripts/dev-watch.mjs"]
     volumes:
       - ./backend:/app
       - backend_node_modules:/app/node_modules
@@ -34,10 +37,15 @@ services:
       dockerfile: Dockerfile.dev
     env_file:
       - ./frontend/.env
+    environment:
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING_INTERVAL: "1000"
     depends_on:
       - backend
     ports:
       - "3000:3000"
+    command: ["pnpm", "exec", "next", "dev", "--hostname", "0.0.0.0", "--webpack"]
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules

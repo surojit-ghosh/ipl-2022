@@ -1,9 +1,61 @@
 import "dotenv/config";
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+
+type JsonObject = Record<string, unknown>;
+
+function asObject(value: unknown): JsonObject {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonObject)
+    : {};
+}
+
+function valueOf(object: JsonObject, key: string): unknown {
+  return object[key];
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function integerValue(value: unknown): number | null {
+  return toInt(value);
+}
+
+function floatValue(value: unknown): number | null {
+  return toFloat(value);
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function jsonInput(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
+async function readJsonFile(path: string): Promise<unknown> {
+  return JSON.parse(await readFile(path, "utf8")) as unknown;
+}
+
+function unixDate(value: unknown): Date | null {
+  const timestamp = integerValue(value);
+  if (timestamp === null) return null;
+  const date = new Date(timestamp * 1000);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function countRecords(value: unknown): number | null {
+  if (Array.isArray(value)) return value.length;
+  const object = asObject(value);
+  const response = asObject(valueOf(object, "response"));
+  const stats = valueOf(response, "stats") ?? valueOf(object, "stats");
+  return Array.isArray(stats) ? stats.length : null;
+}
 
 type TeamRecord = {
   tid: number;
@@ -131,6 +183,7 @@ type InningRecord = {
   };
   target?: number | string;
   batsmen?: BatsmanRecord[];
+  did_not_bat?: Array<{ player_id: number | string; name: string }>;
   bowlers?: BowlerRecord[];
   fielder?: FielderRecord[];
   fows?: FallOfWicketRecord[];
@@ -546,8 +599,172 @@ async function seedMatches() {
   console.log(`Seeded ${scorecardFiles.length} matches`);
 }
 
+function splitOutsideParentheses(value: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let depth = 0;
+
+  for (const character of value) {
+    if (character === "(") depth += 1;
+    if (character === ")") depth = Math.max(0, depth - 1);
+    if (character === "," && depth === 0) {
+      values.push(current);
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+
+  values.push(current);
+  return values;
+}
+
+function officialNames(value: unknown): {
+  name: string;
+  country: string | null;
+  isTvUmpire: boolean;
+}[] {
+  return stringValue(value)
+    ? splitOutsideParentheses(stringValue(value)!)
+        .map((entry) => {
+          const metadata = entry.match(/\(([^)]*)\)\s*$/)?.[1] ?? "";
+          const details = metadata
+            .split(",")
+            .map((detail) => detail.trim())
+            .filter(Boolean);
+          return {
+            name: entry.replace(/\s*\([^)]*\)\s*$/, "").trim(),
+            country: details.find((detail) => detail.toLowerCase() !== "tv") ?? null,
+            isTvUmpire: details.some((detail) => detail.toLowerCase() === "tv"),
+          };
+        })
+        .filter((official) => official.name)
+    : [];
+}
+
+async function seedMatchInfo() {
+  const entries = await readdir(resolve(dataRoot, "match_info"), {
+    withFileTypes: true,
+  });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => entry.name);
+
+  for (const filename of files) {
+    const payload = asObject(
+      await readJsonFile(resolve(dataRoot, "match_info", filename)),
+    );
+    const matchId = requiredInt(valueOf(payload, "match_id"), `${filename}.match_id`);
+    const match = await prisma.match.findUnique({ where: { id: matchId } });
+    if (!match) throw new Error(`Match info references missing match: ${matchId}`);
+
+    const venue = asObject(valueOf(payload, "venue"));
+    const venueId = integerValue(valueOf(venue, "venue_id"));
+    if (match.venueId === null && venueId !== null) {
+      await upsertVenue({
+        venue_id: venueId,
+        name: stringValue(valueOf(venue, "name")) ?? "Unknown venue",
+        location: stringValue(valueOf(venue, "location")) ?? undefined,
+        country: stringValue(valueOf(venue, "country")) ?? undefined,
+        timezone: stringValue(valueOf(venue, "timezone")) ?? undefined,
+      });
+      await prisma.match.update({
+        where: { id: matchId },
+        data: { venueId },
+      });
+    }
+
+    await prisma.matchOfficial.deleteMany({ where: { matchId } });
+    const officials = [
+      ...officialNames(valueOf(payload, "umpires")).map((official) => ({
+        role: "umpire",
+        ...official,
+      })),
+      ...officialNames(valueOf(payload, "referee")).map((official) => ({
+        role: "referee",
+        ...official,
+      })),
+    ];
+    for (const [position, official] of officials.entries()) {
+      await prisma.matchOfficial.create({
+        data: { matchId, ...official, position },
+      });
+    }
+
+    await prisma.matchAward.deleteMany({ where: { matchId } });
+    for (const [awardType, key] of [
+      ["player_of_match", "man_of_the_match"],
+      ["player_of_series", "man_of_the_series"],
+    ] as const) {
+      const award = asObject(valueOf(payload, key));
+      const playerId = positiveIntOrNull(valueOf(award, "pid"));
+      const sourceName = stringValue(valueOf(award, "name"));
+      if (playerId === null && sourceName === null) continue;
+      const player = playerId === null
+        ? null
+        : await ensurePlayer(playerId, sourceName ?? "Unknown player");
+      await prisma.matchAward.create({
+        data: {
+          matchId,
+          awardType,
+          playerId: player?.id ?? null,
+          sourceName,
+        },
+      });
+    }
+  }
+
+  console.log(`Seeded ${files.length} match info records`);
+}
+
+async function seedMatchAwards() {
+  const entries = await readdir(resolve(dataRoot, "scorecards"), {
+    withFileTypes: true,
+  });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => entry.name);
+
+  for (const filename of files) {
+    const payload = asObject(
+      await readJsonFile(resolve(dataRoot, "scorecards", filename)),
+    );
+    const matchId = requiredInt(valueOf(payload, "match_id"), `${filename}.match_id`);
+    await prisma.matchAward.deleteMany({ where: { matchId } });
+    const awards: Array<[string, JsonObject]> = [];
+    const playerOfMatch = asObject(valueOf(payload, "man_of_the_match"));
+    if (positiveIntOrNull(valueOf(playerOfMatch, "pid")) !== null) {
+      awards.push(["player_of_match", playerOfMatch]);
+    }
+    const isFinal = stringValue(valueOf(payload, "subtitle"))?.toLowerCase() === "final";
+    const playerOfSeries = asObject(valueOf(payload, "man_of_the_series"));
+    if (isFinal && positiveIntOrNull(valueOf(playerOfSeries, "pid")) !== null) {
+      awards.push(["player_of_series", playerOfSeries]);
+    }
+
+    for (const [awardType, award] of awards) {
+      const playerId = requiredInt(valueOf(award, "pid"), `${filename}.${awardType}.pid`);
+      const player = await ensurePlayer(
+        playerId,
+        stringValue(valueOf(award, "name")) ?? "Unknown player",
+      );
+      await prisma.matchAward.create({
+        data: {
+          matchId,
+          awardType,
+          playerId: player?.id ?? null,
+          sourceName: stringValue(valueOf(award, "name")),
+        },
+      });
+    }
+  }
+
+  console.log(`Seeded awards for ${files.length} matches`);
+}
+
 async function seedInnings(innings: InningRecord[], matchId: number) {
   await prisma.inning.deleteMany({ where: { matchId } });
+  await prisma.matchPlayingXi.deleteMany({ where: { matchId } });
 
   for (const inning of innings) {
     const inningId = requiredInt(inning.iid, "inning.iid");
@@ -572,6 +789,29 @@ async function seedInnings(innings: InningRecord[], matchId: number) {
       },
     });
 
+    for (const [index, batsman] of (inning.batsmen ?? []).entries()) {
+      const playerId = positiveIntOrNull(batsman.batsman_id);
+      if (playerId === null) continue;
+
+      await prisma.matchPlayingXi.upsert({
+        where: {
+          matchId_teamId_playerId: {
+            matchId,
+            teamId: inning.batting_team_id,
+            playerId,
+          },
+        },
+        update: { battingOrder: index + 1, isDidNotBat: false },
+        create: {
+          matchId,
+          teamId: inning.batting_team_id,
+          playerId,
+          battingOrder: index + 1,
+          isDidNotBat: false,
+        },
+      });
+    }
+
     for (const batsman of inning.batsmen ?? []) {
       const player = await ensurePlayer(batsman.batsman_id, batsman.name);
       if (!player) continue;
@@ -594,6 +834,29 @@ async function seedInnings(innings: InningRecord[], matchId: number) {
           firstFielderId: positiveIntOrNull(batsman.first_fielder_id),
           secondFielderId: positiveIntOrNull(batsman.second_fielder_id),
           thirdFielderId: positiveIntOrNull(batsman.third_fielder_id),
+        },
+      });
+    }
+
+    for (const playerRecord of inning.did_not_bat ?? []) {
+      const player = await ensurePlayer(playerRecord.player_id, playerRecord.name);
+      if (!player) continue;
+
+      await prisma.matchPlayingXi.upsert({
+        where: {
+          matchId_teamId_playerId: {
+            matchId,
+            teamId: inning.batting_team_id,
+            playerId: player.id,
+          },
+        },
+        update: { battingOrder: null, isDidNotBat: true },
+        create: {
+          matchId,
+          teamId: inning.batting_team_id,
+          playerId: player.id,
+          battingOrder: null,
+          isDidNotBat: true,
         },
       });
     }
@@ -794,15 +1057,376 @@ async function seedTeamStats() {
     }
   }
 
-  console.log(`Seeded ${count} team stat snapshots`);
+  console.log(`Processed ${count} team stat snapshot records`);
+}
+
+async function listJsonFiles(
+  directory: string,
+  root = directory,
+): Promise<Array<{ relativePath: string; absolutePath: string }>> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files: Array<{ relativePath: string; absolutePath: string }> = [];
+
+  for (const entry of entries) {
+    const entryPath = resolve(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await listJsonFiles(entryPath, root));
+    if (entry.isFile() && entry.name.endsWith(".json")) {
+      files.push({
+        relativePath: relative(root, entryPath).replaceAll("\\", "/"),
+        absolutePath: entryPath,
+      });
+    }
+  }
+
+  return files;
+}
+
+async function countJsonFiles(directory: string): Promise<number> {
+  return (await listJsonFiles(directory)).length;
+}
+
+async function seedSourceFiles() {
+  const files = await listJsonFiles(dataRoot);
+  const archiveFamilies = new Set([
+    "match_live_details",
+    "batting_stats",
+    "bowling_stats",
+    "team_stats",
+  ]);
+
+  for (const file of files) {
+    const contents = await readFile(file.absolutePath);
+    const payload = JSON.parse(contents.toString()) as unknown;
+    const sourceFamily = file.relativePath.split("/")[0];
+    const sourceFile = await prisma.sourceFile.upsert({
+      where: { relativePath: file.relativePath },
+      update: {
+        sourceFamily,
+        sha256: createHash("sha256").update(contents).digest("hex"),
+        byteSize: contents.byteLength,
+        recordCount: countRecords(payload),
+        status: "loaded",
+      },
+      create: {
+        relativePath: file.relativePath,
+        sourceFamily,
+        sha256: createHash("sha256").update(contents).digest("hex"),
+        byteSize: contents.byteLength,
+        recordCount: countRecords(payload),
+        status: "loaded",
+      },
+    });
+
+    if (!archiveFamilies.has(sourceFamily)) continue;
+    const object = asObject(payload);
+    const matchId = integerValue(
+      valueOf(object, "mid") ?? valueOf(object, "match_id"),
+    );
+    await prisma.sourceSnapshot.upsert({
+      where: { sourceFileId: sourceFile.id },
+      update: {
+        snapshotType: file.relativePath.replace(/\.json$/i, ""),
+        matchId,
+        payload: jsonInput(payload),
+      },
+      create: {
+        sourceFileId: sourceFile.id,
+        snapshotType: file.relativePath.replace(/\.json$/i, ""),
+        matchId,
+        payload: jsonInput(payload),
+      },
+    });
+  }
+
+  console.log(`Tracked ${files.length} source files`);
+}
+
+async function seedCommentary() {
+  const entries = await readdir(resolve(dataRoot, "match_innings_commentary"), {
+    withFileTypes: true,
+  });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => entry.name);
+  let eventCount = 0;
+
+  for (const filename of files) {
+    const payload = asObject(
+      await readJsonFile(resolve(dataRoot, "match_innings_commentary", filename)),
+    );
+    const inning = asObject(valueOf(payload, "inning"));
+    const inningId = requiredInt(valueOf(inning, "iid"), `${filename}.inning.iid`);
+    const savedInning = await prisma.inning.findUnique({
+      where: { id: inningId },
+      select: { matchId: true },
+    });
+    if (!savedInning) throw new Error(`Commentary references missing inning: ${inningId}`);
+    await prisma.commentaryEvent.deleteMany({ where: { inningId } });
+
+    for (const [sequenceNo, item] of arrayValue(valueOf(payload, "commentaries")).entries()) {
+      const event = asObject(item);
+      const batterId = positiveIntOrNull(valueOf(event, "batsman_id"));
+      const bowlerId = positiveIntOrNull(valueOf(event, "bowler_id"));
+      await prisma.commentaryEvent.create({
+        data: {
+          sourceEventId: positiveIntOrNull(valueOf(event, "event_id")),
+          matchId: savedInning.matchId,
+          inningId,
+          eventType: stringValue(valueOf(event, "event")) ?? "unknown",
+          sourceOver: integerValue(valueOf(event, "over")),
+          sourceBall: integerValue(valueOf(event, "ball")),
+          sequenceNo,
+          occurredAt: unixDate(valueOf(event, "timestamp")),
+          batterId,
+          bowlerId,
+          totalRuns: integerValue(valueOf(event, "run")),
+          batRuns: integerValue(valueOf(event, "bat_run")),
+          noBallRuns: integerValue(valueOf(event, "noball_run")),
+          wideRuns: integerValue(valueOf(event, "wide_run")),
+          byeRuns: integerValue(valueOf(event, "bye_run")),
+          legByeRuns: integerValue(valueOf(event, "legbye_run")),
+          isNoBall: valueOf(event, "noball") as boolean | null,
+          isWide: valueOf(event, "wideball") as boolean | null,
+          isFour: valueOf(event, "four") as boolean | null,
+          isSix: valueOf(event, "six") as boolean | null,
+          isWicket: stringValue(valueOf(event, "event")) === "wicket",
+          commentary: stringValue(valueOf(event, "commentary")),
+          detailText: stringValue(valueOf(event, "text")),
+        },
+      });
+      eventCount += 1;
+    }
+  }
+
+  console.log(`Seeded ${eventCount} commentary events`);
+}
+
+async function seedWagon() {
+  const entries = await readdir(resolve(dataRoot, "match_wagon_wheel"), {
+    withFileTypes: true,
+  });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => entry.name);
+  let shotCount = 0;
+
+  for (const filename of files) {
+    const payload = asObject(
+      await readJsonFile(resolve(dataRoot, "match_wagon_wheel", filename)),
+    );
+    const fields = arrayValue(valueOf(payload, "wagon_fields")).map(String);
+    for (const inningItem of arrayValue(valueOf(payload, "innings"))) {
+      const inning = asObject(inningItem);
+      const inningId = requiredInt(valueOf(inning, "inning_id"), `${filename}.inning_id`);
+      const savedInning = await prisma.inning.findUnique({
+        where: { id: inningId },
+        select: { matchId: true },
+      });
+      if (!savedInning) throw new Error(`Wagon references missing inning: ${inningId}`);
+      await prisma.wagonShot.deleteMany({ where: { inningId } });
+      const zones = arrayValue(valueOf(payload, "zones")).map(String);
+      for (const [sequenceNo, row] of arrayValue(valueOf(inning, "wagons")).entries()) {
+        const values = Array.isArray(row) ? row : [];
+        const mapped = Object.fromEntries(fields.map((field, index) => [field, values[index]]));
+        const zoneId = integerValue(mapped.zone_id);
+        await prisma.wagonShot.create({
+          data: {
+            matchId: savedInning.matchId,
+            inningId,
+            sequenceNo,
+            batterId: positiveIntOrNull(mapped.batsman_id),
+            bowlerId: positiveIntOrNull(mapped.bowler_id),
+            sourceOver: floatValue(mapped.over),
+            batRuns: integerValue(mapped.bat_run),
+            teamRuns: integerValue(mapped.team_run),
+            x: floatValue(mapped.x),
+            y: floatValue(mapped.y),
+            zoneId,
+            zoneName: zoneId === null ? null : zones[zoneId - 1] ?? null,
+            eventName: stringValue(mapped.event_name),
+            uniqueOver: floatValue(mapped.unique_over),
+          },
+        });
+        shotCount += 1;
+      }
+    }
+  }
+
+  console.log(`Seeded ${shotCount} wagon shots`);
+}
+
+const careerFormats = ["test", "odi", "t20i", "t20", "lista", "firstclass"] as const;
+
+async function seedCareerStats() {
+  const entries = await readdir(resolve(dataRoot, "player_career_stats"), {
+    withFileTypes: true,
+  });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => entry.name);
+  let battingCount = 0;
+  let bowlingCount = 0;
+
+  for (const filename of files) {
+    const payload = asObject(
+      await readJsonFile(resolve(dataRoot, "player_career_stats", filename)),
+    );
+    const playerRecord = asObject(valueOf(payload, "player"));
+    const playerId = requiredInt(valueOf(playerRecord, "pid"), `${filename}.player.pid`);
+    await upsertPlayerProfile(playerRecord as unknown as PlayerRecord);
+    const batting = asObject(valueOf(payload, "batting"));
+    const bowling = asObject(valueOf(payload, "bowling"));
+
+    for (const format of careerFormats) {
+      const battingRecord = asObject(valueOf(batting, format));
+      if (Object.keys(battingRecord).length > 0) {
+        await prisma.playerCareerBatting.upsert({
+          where: { playerId_format: { playerId, format } },
+          update: careerBattingData(battingRecord),
+          create: { playerId, format, ...careerBattingData(battingRecord) },
+        });
+        battingCount += 1;
+      }
+
+      const bowlingRecord = asObject(valueOf(bowling, format));
+      if (Object.keys(bowlingRecord).length > 0) {
+        await prisma.playerCareerBowling.upsert({
+          where: { playerId_format: { playerId, format } },
+          update: careerBowlingData(bowlingRecord),
+          create: { playerId, format, ...careerBowlingData(bowlingRecord) },
+        });
+        bowlingCount += 1;
+      }
+    }
+  }
+
+  console.log(`Seeded ${battingCount} batting and ${bowlingCount} bowling career snapshots`);
+}
+
+async function expectedCareerCounts() {
+  const files = await listJsonFiles(resolve(dataRoot, "player_career_stats"));
+  let batting = 0;
+  let bowling = 0;
+  for (const file of files) {
+    const payload = asObject(await readJsonFile(file.absolutePath));
+    const battingRecords = asObject(valueOf(payload, "batting"));
+    const bowlingRecords = asObject(valueOf(payload, "bowling"));
+    for (const format of careerFormats) {
+      if (Object.keys(asObject(valueOf(battingRecords, format))).length) batting += 1;
+      if (Object.keys(asObject(valueOf(bowlingRecords, format))).length) bowling += 1;
+    }
+  }
+  return { batting, bowling };
+}
+
+function careerBattingData(record: JsonObject) {
+  return {
+    matches: integerValue(valueOf(record, "matches")),
+    innings: integerValue(valueOf(record, "innings")),
+    notOuts: integerValue(valueOf(record, "notout")),
+    runs: integerValue(valueOf(record, "runs")),
+    balls: integerValue(valueOf(record, "balls")),
+    highest: integerValue(valueOf(record, "highest")),
+    hundreds: integerValue(valueOf(record, "run100")),
+    fifties: integerValue(valueOf(record, "run50")),
+    fours: integerValue(valueOf(record, "run4")),
+    sixes: integerValue(valueOf(record, "run6")),
+    catches: integerValue(valueOf(record, "catches")),
+    stumpings: integerValue(valueOf(record, "stumpings")),
+    sourceAverage: floatValue(valueOf(record, "average")),
+    sourceStrike: floatValue(valueOf(record, "strike")),
+  };
+}
+
+function careerBowlingData(record: JsonObject) {
+  return {
+    matches: integerValue(valueOf(record, "matches")),
+    innings: integerValue(valueOf(record, "innings")),
+    balls: integerValue(valueOf(record, "balls")),
+    overs: floatValue(valueOf(record, "overs")),
+    runs: integerValue(valueOf(record, "runs")),
+    wickets: integerValue(valueOf(record, "wickets")),
+    bestInning: stringValue(valueOf(record, "bestinning")),
+    bestMatch: stringValue(valueOf(record, "bestmatch")),
+    fours: integerValue(valueOf(record, "wicket4i")),
+    fives: integerValue(valueOf(record, "wicket5i")),
+    tens: integerValue(valueOf(record, "wicket10m")),
+    hatTricks: integerValue(valueOf(record, "hattrick")),
+    maidens: integerValue(valueOf(record, "maidens")),
+    sourceEconomy: floatValue(valueOf(record, "econ")),
+    sourceAverage: floatValue(valueOf(record, "average")),
+    sourceStrike: floatValue(valueOf(record, "strike")),
+  };
+}
+
+async function assertSeedReport() {
+  const report = {
+    sourceFiles: await countJsonFiles(dataRoot),
+    teams: await prisma.team.count(),
+    players: await prisma.player.count(),
+    matches: await prisma.match.count(),
+    innings: await prisma.inning.count(),
+    playingXi: await prisma.matchPlayingXi.count(),
+    officials: await prisma.matchOfficial.count(),
+    awards: await prisma.matchAward.count(),
+    commentaryEvents: await prisma.commentaryEvent.count(),
+    wagonShots: await prisma.wagonShot.count(),
+    careerBatting: await prisma.playerCareerBatting.count(),
+    careerBowling: await prisma.playerCareerBowling.count(),
+    standings: await prisma.standing.count(),
+    teamStatSnapshots: await prisma.teamStatSnapshot.count(),
+    sourceSnapshots: await prisma.sourceSnapshot.count(),
+  };
+  const expected = {
+    sourceFiles: 729,
+    teams: 10,
+    players: 247,
+    matches: 74,
+    innings: 148,
+    playingXi: 1628,
+    officials: 296,
+    awards: 75,
+    commentaryEvents: 20749,
+    wagonShots: 17912,
+    standings: 10,
+    teamStatSnapshots: 120,
+    sourceSnapshots: 108,
+  };
+
+  const careerExpected = await expectedCareerCounts();
+  for (const [key, expectedCount] of Object.entries(expected)) {
+    const actual = report[key as keyof typeof report];
+    if (actual !== expectedCount) {
+      throw new Error(
+        `Seed count mismatch for ${key}: expected ${expectedCount}, got ${actual}`,
+      );
+    }
+  }
+  if (report.careerBatting !== careerExpected.batting || report.careerBowling !== careerExpected.bowling) {
+    throw new Error(
+      `Seed career count mismatch: expected ${JSON.stringify(careerExpected)}, got ${JSON.stringify({
+        batting: report.careerBatting,
+        bowling: report.careerBowling,
+      })}`,
+    );
+  }
+
+  console.log(`Seed report ${JSON.stringify(report)}`);
 }
 
 async function main() {
   await seedTeams();
   await seedPlayersAndSquads();
   await seedMatches();
+  await seedMatchInfo();
+  await seedMatchAwards();
+  await seedCareerStats();
+  await seedCommentary();
+  await seedWagon();
   await seedStandings();
   await seedTeamStats();
+  await seedSourceFiles();
+  await assertSeedReport();
 }
 
 main()

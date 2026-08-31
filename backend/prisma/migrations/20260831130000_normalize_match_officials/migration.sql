@@ -1,0 +1,3 @@
+ALTER TABLE "MatchOfficial"
+ADD COLUMN "country" TEXT,
+ADD COLUMN "isTvUmpire" BOOLEAN NOT NULL DEFAULT false;

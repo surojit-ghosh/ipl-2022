@@ -1,0 +1,27 @@
+aiko.surojit.in {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy backend:3001
+    }
+
+    handle /docs/* {
+        reverse_proxy backend:3001
+    }
+
+    handle /openapi.json {
+        reverse_proxy backend:3001
+    }
+
+    handle /health {
+        reverse_proxy backend:3001
+    }
+
+    handle /ready {
+        reverse_proxy backend:3001
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+}

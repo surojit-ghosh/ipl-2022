@@ -1,111 +1,96 @@
-# Aiko — Mercury editorial (IPL 2022)
+# Aiko — paper editorial (IPL 2022)
 
-Source: Mercury — Banking Editorial Warmth  
-https://github.com/rohitg00/awesome-claude-design/blob/main/design-md/warm/mercury.md
+Cream sheet, warm ink, one field-green action. A broadsheet for scores, not a live-score toy and not a SaaS dashboard.
 
-Cream paper, warm ink, hairline tables. **One** saturated accent: cricket-field green (Mercury indigo swapped). Success / warning / danger stay Mercury’s.
+Mood: unhurried, trustworthy, dense where the numbers live. Product name: **Aiko**. Independent IPL 2022 analytics.
 
----
+## 1. Atmosphere
 
-Reference DESIGN.md for a data product that feels calm and considered, not chrome-and-glass cold. Cream canvas, green action, dashboard density that still reads like editorial.
+The page is paper. Cream canvas, quiet surfaces, hairline rules. Information density from a results page; tone from a financial broadsheet. Team colours never fill a section — logo or nothing.
 
-## 1. Visual Theme & Atmosphere
-
-Trust through editorial restraint. The page is paper, not plastic. Cream backgrounds, warm-gray ink, one green CTA. Information density borrows from Linear; tone borrows from a financial broadsheet. Numbers are legible, surfaces are quiet, the brand lets the data stand.
-
-Mood: trustworthy, deliberate, modern, unhurried. Product name: **Aiko**. Independent IPL 2022 analytics — not a bank, not a live-score toy.
-
-## 2. Color Palette & Roles
+## 2. Color
 
 ```
---bg-primary:      #f6f5f2   /* warm canvas, page */
---bg-secondary:    #ebe8e0   /* surface lift */
---bg-tertiary:     #ded9ca   /* tonal divider, secondary CTA */
---surface:         #ffffff   /* card, table */
---text-primary:    #2a2924   /* ink */
---text-secondary:  #5a5548   /* warm gray */
---text-muted:      #8a8478
---accent:          #1B5E3B   /* field green, primary CTA + link */
---accent-hover:    #154C30
---border:          #ded9ca
---border-strong:   #c9c3b3
---success:         #2f7d57   /* win */
---warning:         #c98a42   /* saffron highlight, MOTM */
---danger:          #b54a3a   /* loss / error */
+--bg-primary:      #f1eee6   /* page paper */
+--bg-secondary:    #e6e1d4   /* lift, date rules */
+--bg-tertiary:     #d4cebe   /* secondary fill */
+--surface:         #faf8f3   /* raised sheet */
+--text-primary:    #1c1914   /* ink */
+--text-secondary:  #5c564a
+--text-muted:      #8a8376
+--brand:           #1a5c38   /* field green, CTA + active link */
+--brand-hover:     #14492c
+--border:          #d4cebe
+--border-strong:   #b8b09c
+--success:         #2f7d57
+--warning:         #c98a42   /* MOTM / champion chips only */
+--danger:          #b54a3a
 ```
 
-Rule: field green is the only saturated action color. Use it for primary buttons and link underline. Warm grays do everything else. Team brand colors: logo or a 4px accent bar only — never a section fill.
+Field green is the only saturated action colour. Warm greys do the rest.
 
-## 3. Typography Rules
+## 3. Type
 
-- **Headlines:** `Arcadia Display`, fallback `Georgia`, `Iowan Old Style`. Weight 400. Letter-spacing −1%.
-- **Body + UI:** `Arcadia`, fallback `Inter`, system-ui. Weight 400/500. Line-height 1.5.
-- **Numerals:** tabular figures on every score, average, strike rate, chart label, standings cell. Never proportional figures on stats.
-- **Mono:** `IBM Plex Mono` for IDs, overs (`17.4`), and code.
+- **Display:** Newsreader, 400. Tracking −0.02em. Headings only.
+- **Body + UI:** Source Sans 3, 400/500. Line-height 1.5. Measure leave for long copy; this app is mostly UI.
+- **Scores / overs / IDs:** IBM Plex Mono, tabular figures. Never proportional figures on stats.
 
-Implementation (Next.js, no paid Arcadia): **Inter** + **IBM Plex Mono** via `next/font`. Headlines may use `Georgia` until a licensed display face exists.
-
-Scale: 13 / 14 / 16 / 18 / 22 / 28 / 36 / 48 / 72.
+Scale: 13 / 14 / 16 / 18 / 22 / 28 / 36 / 48.
 
 Mobile inputs: 16px minimum.
 
-## 4. Component Stylings
+## 4. Components
 
 **Buttons**
-- Primary: `--accent` fill, white text, full pill (radius 999), padding 10/20, weight 500. No shadow.
-- Secondary: `--bg-tertiary` fill, ink text, full pill. Hover: `--border-strong`.
-- Ghost: ink text, `--accent` on hover.
-- One primary per region. Hit area 44px on mobile.
+- Primary: accent fill, white, pill, padding 10/20, weight 500. Press: scale 0.97, 120ms.
+- Secondary: tertiary fill, ink, pill. Hover: stronger border.
+- Ghost: ink, accent on hover.
+- One primary per region. Hit 44px on mobile.
 
-**Cards**
-- Surface white on `--bg-primary`, 1px `--border`, radius 8px. No shadow.
-- Stat cells: value in 36px tabular, label in 13px uppercase eyebrow.
+**Match rows**
+- One card for every match. Hairline between rows. Latest match gets a subtle paper background.
+- Newest first, then the previous game, and so on.
+- Date is a heading on the card. Winner name medium ink; loser secondary. Result in secondary ink. Infinite scroll. After ~48px, a back-to-top control.
 
 **Inputs**
-- Pill shape, 1px `--border`, padding 10/16. Focus: 2px `--accent` ring, 2px offset.
+- Pill, 1px border. Focus: 2px accent ring, 2px offset.
 
-**Tables**
-- Tabular numerals, hairline `--border` between rows, sticky header in 12px uppercase eyebrow on `--bg-secondary`.
-- Numbers right-aligned. Below 640px: stacked key-value cards, primary number 22px tabular.
+## 5. Layout
 
-## 5. Layout Principles
+- Sticky bar is full-bleed. Aiko + links and page body share max-width 1280px, 24px gutter.
+- 4px base: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 96.
+- Top nav: Aiko (wordmark, no underline) · Matches (`/`) · Standings · Stats · Teams · Players · Venues.
+- Active link: field green, wider hit (`px-5`, 44px). Colour only — no underline.
+- Sticky nav is full width. At rest it is quiet (no rule). After ~48px scroll it shows a paper fill and a hairline under-rule.
 
-- App shell 1280px max, 24px gutter. Content may sit at 1120px inside the shell.
-- 4px base. 4 / 8 / 12 / 16 / 24 / 32 / 48 / 96.
-- Sidebar persistent at 240px, content right of it.
-- Nav order: Overview · Matches · Standings · Stats · Teams · Players · Venues.
+## 6. Depth
 
-## 6. Depth & Elevation
+Flat. Tone shift and 1px borders. Modal only: `0 12px 32px rgba(28, 25, 20, 0.10)`. No card shadow, no glass.
 
-Flat. Depth from cream tone shifts and 1px borders. Modals only use shadow: `0 12px 32px rgba(42, 41, 36, 0.10)`. No card lift, no neumorphism, no glass.
-
-## 7. Do's and Don'ts
+## 7. Do / Don't
 
 **Do**
-- Tabular figures everywhere a score or rate appears.
-- Pair green CTA with a tonal cream secondary, never two saturated buttons.
-- Let cream do the lifting between sections; resist boxing every group.
-- Loading / empty / error states that keep layout height.
+- Tabular figures on every score.
+- Green CTA with cream secondary — never two saturated buttons.
+- Let paper separate groups.
 
 **Don't**
-- Use crypto-startup gradients, neon, or fake LIVE.
-- Set score tables in proportional figures.
-- Introduce a second saturated accent for “highlight” tiles — use `--warning` only for MOTM / champion chips, not page chrome.
-- Add card shadows to dashboard tiles.
-- Dark navy shells, purple gradients, stadium photography.
+- Gradients, neon, fake LIVE, dark navy, stadium photography.
+- Uppercase eyebrows over headings.
+- 4px accent bars on list rows.
+- Proportional figures on scores.
 
-## 8. Responsive Behavior
+## 8. Responsive
 
-- Sidebar collapses to icon rail at 1024px, hidden behind a 44px menu control below 768px.
-- Tables become stacked KV cards below 640px, scores kept in 22px tabular.
-- Floor: 360px. No horizontal page scroll.
+- Below 768px: 44px menu, links in a sheet.
+- Floor 360px. `overflow-x: clip` on html/body. No page-level horizontal scroll.
 
 ## 9. Motion
 
-120ms color/opacity only. `prefers-reduced-motion: reduce` → 0ms. No count-up scores.
+120ms colour, opacity, and press-scale only. `ease-out`. Lenis handles document scroll; skip it when `prefers-reduced-motion` is enabled. `prefers-reduced-motion: reduce` → 0ms. No count-up scores. Sticky chrome: opacity only.
 
-## 10. Agent Prompt Guide
+## 10. Agent guide
 
-Bias: cream background, warm-gray ink, single field-green accent, full-pill buttons, tabular numerals on every score surface, hairline tables, persistent left sidebar, editorial vertical rhythm.
+Bias: cream paper, Newsreader headings, Source Sans 3 UI, IBM Plex Mono scores, one field green, contained sticky masthead, hairline match list.
 
-Reject: pure-white SaaS canvas, indigo leftover from Mercury, multiple saturated accents, drop-shadowed cards, proportional figures on scores, gradient hero treatments, glass-morphism over cricket data.
+Reject: Inter-as-display, pill-filled nav as the only active state, boxed card grids for fixtures, indigo, glass.
