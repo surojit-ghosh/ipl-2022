@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { fetchStats } from "./api";
 import type {
@@ -758,18 +759,16 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
           <SectionHeading title={battingCategoryDetails.label} description={battingCategoryDetails.description} />
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Batting stat
-            <select
-              value={battingCategory}
-              disabled={loading}
-              onChange={(event) => void changeBattingCategory(event.target.value as BattingCategory)}
-              className="min-h-9 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              {BATTING_CATEGORIES.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+            <Select value={battingCategory} disabled={loading} onValueChange={(value) => void changeBattingCategory(value as BattingCategory)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BATTING_CATEGORIES.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         </div>
         <BattingTable rows={data.batting} category={battingCategory} />
@@ -780,18 +779,16 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
           <SectionHeading title={bowlingCategoryDetails.label} description={bowlingCategoryDetails.description} />
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Bowling stat
-            <select
-              value={bowlingCategory}
-              disabled={loading}
-              onChange={(event) => void changeBowlingCategory(event.target.value as BowlingCategory)}
-              className="min-h-9 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              {BOWLING_CATEGORIES.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+            <Select value={bowlingCategory} disabled={loading} onValueChange={(value) => void changeBowlingCategory(value as BowlingCategory)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BOWLING_CATEGORIES.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         </div>
         <BowlingTable rows={data.bowling} category={bowlingCategory} />

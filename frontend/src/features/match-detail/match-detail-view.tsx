@@ -6,6 +6,7 @@ import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 import type {
@@ -678,31 +679,43 @@ function WagonWheelTab({ shots }: { shots: WagonShot[] }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="grid gap-1 text-sm font-medium">
           Innings
-          <select value={inning} onChange={(event) => setInning(event.target.value)} className="min-h-9 rounded-md border border-border bg-background px-3 font-normal">
-            <option value="all">All innings</option>
-            {innings.map((value) => <option key={value} value={value}>Innings {value}</option>)}
-          </select>
+          <Select value={inning} onValueChange={setInning}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All innings</SelectItem>
+              {innings.map((value) => <SelectItem key={value} value={String(value)}>Innings {value}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Batter
-          <select value={batter} onChange={(event) => setBatter(event.target.value)} className="min-h-9 rounded-md border border-border bg-background px-3 font-normal">
-            <option value="all">All batters</option>
-            {batters.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}
-          </select>
+          <Select value={batter} onValueChange={setBatter}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All batters</SelectItem>
+              {batters.map((player) => <SelectItem key={player.id} value={String(player.id)}>{player.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Bat runs
-          <select value={runs} onChange={(event) => setRuns(event.target.value)} className="min-h-9 rounded-md border border-border bg-background px-3 font-normal">
-            <option value="all">All run values</option>
-            {[0, 1, 2, 3, 4, 6].map((value) => <option key={value} value={value}>{value} runs</option>)}
-          </select>
+          <Select value={runs} onValueChange={setRuns}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All run values</SelectItem>
+              {[0, 1, 2, 3, 4, 6].map((value) => <SelectItem key={value} value={String(value)}>{value} runs</SelectItem>)}
+            </SelectContent>
+          </Select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Field zone
-          <select value={zone} onChange={(event) => setZone(event.target.value)} className="min-h-9 rounded-md border border-border bg-background px-3 font-normal">
-            <option value="all">All zones</option>
-            {zones.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
+          <Select value={zone} onValueChange={setZone}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All zones</SelectItem>
+              {zones.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </label>
       </div>
       {filtered.length ? (

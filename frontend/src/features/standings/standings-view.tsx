@@ -34,7 +34,7 @@ function TeamMark({ team }: { team: StandingTeam }) {
 }
 
 function number(value: number | null, digits = 0) {
-  if (value === null) return "—";
+  if (value === null) return "-";
   return digits ? value.toFixed(digits) : String(value);
 }
 
@@ -49,31 +49,36 @@ function recentMatchIds(value: string | null) {
   return value?.split(",").map((item) => item.trim()).filter((item) => /^\d+$/.test(item)) ?? [];
 }
 
-function Form({ value }: { value: string | null }) {
-  const results = recentResults(value);
-  if (!results.length) return <span className="text-muted-foreground">—</span>;
+function Form({ resultsValue, matchesValue }: { resultsValue: string | null; matchesValue: string | null }) {
+  const results = recentResults(resultsValue);
+  const matchIds = recentMatchIds(matchesValue);
+  if (!results.length) return <span className="text-muted-foreground">-</span>;
 
   return (
     <span className="flex gap-1.5" aria-label={`Recent form: ${results.join(", ")}`}>
-      {results.map((result, index) => (
-        <span
-          key={`${result}-${index}`}
-          aria-hidden="true"
-          className={`inline-flex size-6 items-center justify-center rounded-full text-xs font-medium ${
-            result === "W"
-              ? "bg-[color-mix(in_srgb,var(--success)_16%,var(--surface))] text-success"
-              : result === "L"
-                ? "bg-[color-mix(in_srgb,var(--danger)_12%,var(--surface))] text-danger"
-                : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {result}
-        </span>
-      ))}
+      {results.map((result, index) => {
+        const className = `inline-flex size-6 items-center justify-center rounded-full text-xs font-medium ${
+          result === "W"
+            ? "bg-[color-mix(in_srgb,var(--success)_16%,var(--surface))] text-success"
+            : result === "L"
+              ? "bg-[color-mix(in_srgb,var(--danger)_12%,var(--surface))] text-danger"
+              : "bg-muted text-muted-foreground"
+        }`;
+        const matchId = matchIds[index];
+
+        return matchId ? (
+          <Link key={`${result}-${index}`} href={`/matches/${matchId}`} className={`${className} focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none`} aria-label={`${result}, match ${matchId}`}>
+            {result}
+          </Link>
+        ) : (
+          <span key={`${result}-${index}`} className={className}>
+            {result}
+          </span>
+        );
+      })}
     </span>
   );
 }
-
 function StandingRow({ standing }: { standing: Standing }) {
   return (
     <tr className="transition-colors duration-120 ease-out hover:bg-muted/60">
@@ -86,7 +91,7 @@ function StandingRow({ standing }: { standing: Standing }) {
           <TeamMark team={standing.team} />
           <span className="min-w-0">
             <span className="block wrap-break-word font-medium text-foreground">{standing.team.name}</span>
-            <span className="block text-xs text-muted-foreground">{standing.team.abbreviation ?? "—"}</span>
+            <span className="block text-xs text-muted-foreground">{standing.team.abbreviation ?? "-"}</span>
           </span>
         </Link>
       </th>
@@ -95,23 +100,14 @@ function StandingRow({ standing }: { standing: Standing }) {
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.losses)}</td>
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.draws)}</td>
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.noResults)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{standing.oversFor ?? "—"}</td>
+      <td className="px-4 py-4 text-right font-mono tabular-nums">{standing.oversFor ?? "-"}</td>
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.runsFor)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{standing.oversAgainst ?? "—"}</td>
+      <td className="px-4 py-4 text-right font-mono tabular-nums">{standing.oversAgainst ?? "-"}</td>
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.runsAgainst)}</td>
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.points)}</td>
       <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.netRunRate, 3)}</td>
       <td className="px-4 py-4">
-        <Form value={standing.lastFiveResults} />
-        {recentMatchIds(standing.lastFiveMatches).length ? (
-          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            {recentMatchIds(standing.lastFiveMatches).map((matchId) => (
-              <Link key={matchId} href={`/matches/${matchId}`} className="underline-offset-4 hover:underline">
-                #{matchId}
-              </Link>
-            ))}
-          </div>
-        ) : null}
+        <Form resultsValue={standing.lastFiveResults} matchesValue={standing.lastFiveMatches} />
       </td>
     </tr>
   );
