@@ -5,6 +5,10 @@ aiko.surojit.in {
         reverse_proxy backend:3001
     }
 
+    handle /docs {
+        redir /docs/ permanent
+    }
+
     handle /docs/* {
         reverse_proxy backend:3001
     }
