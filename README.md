@@ -1,24 +1,42 @@
 # Aiko IPL Data Platform
 
-Read-only IPL 2022 explorer backed by PostgreSQL, Express, Prisma, and Next.js.
+Read-only IPL 2022 explorer built with Next.js, Express, Prisma, and PostgreSQL.
+
+## Live URLs
+
+- Application: https://aiko.surojit.in
+- Swagger UI: https://aiko.surojit.in/docs/
+- OpenAPI JSON: https://aiko.surojit.in/openapi.json
+- Health: https://aiko.surojit.in/health
+- Database readiness: https://aiko.surojit.in/ready
 
 ## Architecture
 
-- `backend/`: Express API, Prisma schema/migrations, and idempotent seed.
-- `frontend/`: Next.js web application.
-- `db`: PostgreSQL 16.
-- `docker-compose.dev.yml`: local development with reload.
+```text
+Browser
+  -> Caddy (HTTPS, automatic Let's Encrypt certificates)
+  -> Next.js frontend
+  -> Express API
+  -> PostgreSQL
+```
 
-All match analysis is historical archive data. The application has no live scores,
-polling, authentication, or user-generated data.
+Production runs on an Oracle Cloud Ubuntu VM with Docker Compose. Only Caddy publishes ports `80` and `443`; PostgreSQL, frontend, and backend remain on the internal Compose network.
 
-## Local setup
+## Stack
+
+- Frontend: Next.js, React, TypeScript
+- Backend: Express, TypeScript, Prisma
+- Database: PostgreSQL 16
+- Containers: Docker Compose
+- Proxy and TLS: Caddy
+- CI/CD: GitHub Actions and GitHub Container Registry (GHCR)
+
+## Local development
 
 Prerequisites: Docker Desktop and Docker Compose.
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
-Copy-Item frontend/.env.example frontend/.env
 docker compose -f docker-compose.dev.yml up -d db
 docker compose -f docker-compose.dev.yml run --rm backend pnpm db:migrate
 docker compose -f docker-compose.dev.yml run --rm backend sh -lc 'pnpm db:generate && pnpm db:seed'
@@ -34,64 +52,97 @@ Open:
 - Health: http://localhost:3001/health
 - Database readiness: http://localhost:3001/ready
 
-Stop services:
+Stop local services:
 
 ```powershell
 docker compose -f docker-compose.dev.yml down
 ```
 
-Add `-v` only when deleting the local PostgreSQL volume.
+Add `-v` only when intentionally deleting the local PostgreSQL volume.
 
-## Production images
+## Database
 
-Build both production images from the repository root:
+The backend environment requires:
 
-```powershell
-docker compose build
+```env
+DATABASE_URL=postgresql://aiko:aiko@db:5432/aiko
+PORT=3001
 ```
 
-Apply migrations before starting a new database:
+Run migrations against the active Compose database:
 
-```powershell
-docker compose -f docker-compose.dev.yml run --rm backend pnpm db:migrate
-docker compose -f docker-compose.dev.yml run --rm backend sh -lc 'pnpm db:generate && pnpm db:seed'
-docker compose up -d
+```bash
+docker compose run --rm migrate
 ```
 
-The development backend runs migrations and seed against the shared database
-before production services start. The production backend image includes the
-generated Prisma client. Database credentials come from `backend/.env`; do not
-commit environment files.
+Seed data manually when required:
 
-## CI
+```bash
+docker compose run --rm migrate pnpm db:seed
+```
 
-GitHub Actions runs backend typecheck/build, frontend lint/build, PostgreSQL
-migration and seed verification, and production Docker image builds. It does
-not push images or deploy infrastructure.
+The seed is idempotent. It validates 729 source files, 108 archived snapshots, 74 matches, 247 players, 148 innings, 296 officials, 20,749 commentary events, and 17,912 wagon-wheel shots.
 
-## Deployment boundary
+## Production deployment
 
-Azure VM deployment is intentionally pending. No cloud credentials, registry
-publishing, or deployment job is included in this repository.
+Production Compose pulls prebuilt images from GHCR:
+
+- `ghcr.io/surojit-ghosh/ipl-2022-backend:latest`
+- `ghcr.io/surojit-ghosh/ipl-2022-migrate:latest`
+- `ghcr.io/surojit-ghosh/ipl-2022-frontend:latest`
+
+This keeps expensive image builds off the 1 GB Oracle VM.
+
+Required VPS files:
+
+```text
+backend/.env
+Caddyfile
+docker-compose.yml
+```
+
+Start or update manually on the VPS:
+
+```bash
+cd ~/projects/aiko
+git pull --ff-only origin main
+docker compose pull
+docker compose up -d db
+docker compose run --rm migrate
+docker compose up -d --remove-orphans
+```
+
+Caddy issues and renews TLS certificates automatically when DNS for `aiko.surojit.in` points to the VM public IP.
+
+## CI/CD
+
+Pull requests run backend and frontend checks. Pushes to `main`:
+
+1. Run backend migration, seed, typecheck, and build checks.
+2. Run frontend lint and production build.
+3. Build and publish backend, migration, and frontend images to GHCR.
+4. SSH to the Oracle VM.
+5. Pull images, apply migrations, and restart changed services.
+
+The deploy workflow uses repository secrets:
+
+```text
+DEPLOY_HOST
+DEPLOY_USER
+DEPLOY_SSH_KEY
+```
+
+Production environment files and database credentials remain on the VPS and are not committed.
 
 ## API areas
 
-- `/api/matches`: match cards, scorecards, commentary, wagon-wheel shots, and archived snapshots.
-- `/api/teams`, `/api/players`, `/api/venues`: browsing and detail pages.
-- `/api/standings`: season table.
-- `/api/stats`: batting, bowling, team, venue, and summary statistics.
+- `/api/matches`: match cards, scorecards, commentary, wagon-wheel shots, and historical snapshots
+- `/api/teams`, `/api/players`, `/api/venues`: browsing and detail data
+- `/api/standings`: season table
+- `/api/stats`: batting, bowling, team, venue, and summary statistics
 
-Paginated match and player lists return `{ data, meta }`, where `meta` contains
-`page`, `page_size`, `total_items`, and `total_pages`. Non-paginated collections
-return `{ data }`. Invalid IDs and query values return `400 { error }`; missing
-records return `404 { error }`.
+Paginated match and player lists return `{ data, meta }`. Invalid IDs and query values return `400`; missing records return `404`.
 
-## Data notes
+## Data scope
 
-The seed verifies 729 source files, 108 archived snapshots, 74 matches,
-247 players, 148 innings, 296 officials, 20,749 commentary events, and
-17,912 wagon-wheel shots. Career statistics contain six populated formats:
-`test`, `odi`, `t20i`, `t20`, `lista`, and `firstclass`.
-
-`/health` checks only that the process responds. `/ready` runs a database query
-and returns `503` when PostgreSQL is unavailable.
+All data is historical IPL 2022 archive data. This application has no live scores, polling, accounts, payments, or user-generated content.
