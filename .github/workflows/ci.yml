@@ -1,4 +1,4 @@
-name: CI
+name: CI and deploy
 
 on:
   pull_request:
@@ -33,77 +33,76 @@ jobs:
     env:
       DATABASE_URL: postgresql://aiko:aiko@localhost:5432/aiko
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: backend/pnpm-lock.yaml
-
-      - name: Install backend dependencies
-        run: pnpm --dir backend install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm --dir backend db:generate
-
-      - name: Apply migrations
-        run: pnpm --dir backend exec prisma migrate deploy
-
-      - name: Seed database
-        run: pnpm --dir backend db:seed
-
-      - name: Typecheck backend
-        run: pnpm --dir backend typecheck
-
-      - name: Build backend
-        run: pnpm --dir backend build
+      - run: pnpm --dir backend install --frozen-lockfile
+      - run: pnpm --dir backend db:generate
+      - run: pnpm --dir backend exec prisma migrate deploy
+      - run: pnpm --dir backend db:seed
+      - run: pnpm --dir backend typecheck
+      - run: pnpm --dir backend build
 
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Install frontend dependencies
-        run: pnpm --dir frontend install --frozen-lockfile
-
-      - name: Lint frontend
-        run: pnpm --dir frontend lint
-
-      - name: Build frontend
-        run: pnpm --dir frontend build
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: pnpm --dir frontend lint
+      - run: pnpm --dir frontend build
 
   images:
     name: Build Docker images
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - run: docker build --file backend/Dockerfile --tag aiko-backend:${{ github.sha }} backend
+      - run: docker build --file frontend/Dockerfile --tag aiko-frontend:${{ github.sha }} frontend
 
-      - name: Build backend image
-        run: docker build --file backend/Dockerfile --tag aiko-backend:${{ github.sha }} backend
+  deploy:
+    name: Deploy to Oracle VPS
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
-      - name: Build frontend image
-        run: docker build --file frontend/Dockerfile --tag aiko-frontend:${{ github.sha }} frontend
+      - name: Update application
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" <<'EOF'
+            set -eu
+            cd ~/projects/aiko
+            git pull --ff-only origin main
+            docker compose build
+            docker compose up -d db
+            docker compose run --rm migrate
+            docker compose run --rm seed
+            docker compose up -d --remove-orphans
+          EOF
