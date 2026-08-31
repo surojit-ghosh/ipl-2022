@@ -5,8 +5,11 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml tsconfig.json ./
 COPY src ./src
+COPY prisma.config.ts ./
+COPY prisma ./prisma
 
 RUN pnpm install --frozen-lockfile
+RUN pnpm db:generate
 RUN pnpm build
 RUN pnpm prune --prod
 

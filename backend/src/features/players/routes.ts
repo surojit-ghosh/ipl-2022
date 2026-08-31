@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import { database } from "@/lib/db";
-import { pagedQuery, pathId } from "@/lib/query";
+import { pagedQuery, pathId, stringQuery } from "@/lib/query";
 import { matchesScope, oversToBalls, queryScope } from "@/lib/scope";
 
 export const playersRouter = Router();
@@ -9,7 +9,7 @@ export const playersRouter = Router();
 playersRouter.get("/", async (req, res, next) => {
   try {
     const { page, pageSize } = pagedQuery(req.query);
-    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const q = stringQuery(req.query.q, "q");
     const where = q?.trim()
       ? { name: { contains: q.trim(), mode: "insensitive" as const } }
       : undefined;

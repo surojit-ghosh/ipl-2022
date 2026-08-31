@@ -1,7 +1,9 @@
+import { enumQuery } from "@/lib/query";
+
 export type Scope = "league" | "playoffs" | "all";
 
 export function queryScope(value: unknown): Scope {
-  return value === "league" || value === "playoffs" ? value : "all";
+  return enumQuery(value, ["league", "playoffs", "all"] as const, "scope", "all");
 }
 
 export function matchesScope(subtitle: string | null, scope: Scope): boolean {

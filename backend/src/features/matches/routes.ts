@@ -1,6 +1,12 @@
 import { Router } from "express";
 
-import { numberQuery, orderQuery, pagedQuery, pathId } from "@/lib/query";
+import {
+  numberQuery,
+  orderQuery,
+  pagedQuery,
+  pathId,
+  stringQuery,
+} from "@/lib/query";
 
 import {
   latestMatch,
@@ -30,8 +36,8 @@ matchesRouter.get("/", async (req, res, next) => {
     const result = await listMatches({
       page,
       pageSize,
-      teamId: numberQuery(req.query.team_id),
-      venueId: numberQuery(req.query.venue_id),
+      teamId: numberQuery(req.query.team_id, "team_id", { min: 1 }),
+      venueId: numberQuery(req.query.venue_id, "venue_id", { min: 1 }),
       order: orderQuery(req.query.order),
     });
     res.json(result);
@@ -81,10 +87,10 @@ matchesRouter.get("/:id/wagon-wheel", async (req, res, next) => {
     if (id === null) return res.status(400).json({ error: "Invalid match id" });
     const match = await matchExists(id);
     if (!match) return res.status(404).json({ error: "Match not found" });
-    const inning = numberQuery(req.query.inning);
-    const batterId = numberQuery(req.query.batter_id);
-    const batRuns = numberQuery(req.query.bat_runs);
-    const zone = typeof req.query.zone === "string" ? req.query.zone : undefined;
+    const inning = numberQuery(req.query.inning, "inning", { min: 1 });
+    const batterId = numberQuery(req.query.batter_id, "batter_id", { min: 1 });
+    const batRuns = numberQuery(req.query.bat_runs, "bat_runs", { min: 0 });
+    const zone = stringQuery(req.query.zone, "zone");
     const data = await matchWagonWheel(id, { inning, batterId, batRuns, zone });
     res.json({ matchId: id, historical: true, data });
   } catch (error) {

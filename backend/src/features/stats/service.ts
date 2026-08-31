@@ -1,4 +1,5 @@
 import { database } from "@/lib/db";
+import { enumQuery } from "@/lib/query";
 import { matchesScope, oversToBalls, scoreRuns, type Scope } from "@/lib/scope";
 
 export const BATTING_CATEGORIES = [
@@ -18,10 +19,7 @@ export const BATTING_CATEGORIES = [
 export type BattingCategory = (typeof BATTING_CATEGORIES)[number];
 
 export function queryBattingCategory(value: unknown): BattingCategory {
-  return typeof value === "string" &&
-    (BATTING_CATEGORIES as readonly string[]).includes(value)
-    ? (value as BattingCategory)
-    : "batting_most_runs";
+  return enumQuery(value, BATTING_CATEGORIES, "category", "batting_most_runs");
 }
 
 function rate(runs: number, balls: number) {
@@ -170,10 +168,7 @@ export const BOWLING_CATEGORIES = [
 export type BowlingCategory = (typeof BOWLING_CATEGORIES)[number];
 
 export function queryBowlingCategory(value: unknown): BowlingCategory {
-  return typeof value === "string" &&
-    (BOWLING_CATEGORIES as readonly string[]).includes(value)
-    ? (value as BowlingCategory)
-    : "bowling_top_wicket_takers";
+  return enumQuery(value, BOWLING_CATEGORIES, "category", "bowling_top_wicket_takers");
 }
 
 export async function bowlingStats(
