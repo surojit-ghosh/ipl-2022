@@ -25,6 +25,7 @@ function PlayerImage({ player }: { player: Player }) {
           alt=""
           width={64}
           height={64}
+          unoptimized
           loading="lazy"
           decoding="async"
           className="size-full object-cover"

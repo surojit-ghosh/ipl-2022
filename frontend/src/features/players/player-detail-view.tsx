@@ -35,7 +35,7 @@ function PlayerMark({ player }: { player: PlayerDetail }) {
   return (
     <span className="inline-flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium text-muted-foreground">
       {image && !failed ? (
-        <Image src={image} alt="" width={96} height={96} className="size-full object-cover" onError={() => setFailed(true)} />
+        <Image src={image} alt="" width={96} height={96} unoptimized className="size-full object-cover" onError={() => setFailed(true)} />
       ) : (
         initials(player.name)
       )}

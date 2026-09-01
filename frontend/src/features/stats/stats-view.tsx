@@ -79,6 +79,7 @@ function PlayerMark({ player }: { player: BattingStat["player"] }) {
           alt=""
           width={32}
           height={32}
+          unoptimized
           loading="lazy"
           className="size-full object-cover"
           onError={() => setFailed(true)}
@@ -101,6 +102,7 @@ function TeamMark({ team }: { team: TeamStat["team"] }) {
           alt=""
           width={32}
           height={32}
+          unoptimized
           loading="lazy"
           className="size-full object-contain p-1"
           onError={() => setFailed(true)}

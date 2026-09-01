@@ -17,7 +17,7 @@ function TeamMark({ team }: { team: TeamProfile }) {
   return (
     <span className="inline-flex size-20 shrink-0 items-center justify-center rounded-full bg-muted text-xl font-medium text-muted-foreground sm:size-24">
       {image && !failed ? (
-        <Image src={image} alt="" width={96} height={96} className="size-full object-contain p-2" onError={() => setFailed(true)} />
+        <Image src={image} alt="" width={96} height={96} unoptimized className="size-full object-contain p-2" onError={() => setFailed(true)} />
       ) : (
         team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)
       )}
@@ -73,6 +73,7 @@ function SquadRow({ member }: { member: SquadMember }) {
             alt=""
             width={36}
             height={36}
+            unoptimized
             loading="lazy"
             className="size-full object-cover"
             onError={() => setFailed(true)}

@@ -21,6 +21,7 @@ function TeamMark({ team }: { team: StandingTeam }) {
           alt=""
           width={36}
           height={36}
+          unoptimized
           loading="lazy"
           decoding="async"
           className="size-full object-contain p-1"

@@ -84,6 +84,7 @@ function TeamLogo({ team, className }: { team: Team; className?: string }) {
           alt=""
           width={48}
           height={48}
+          unoptimized
           className="size-full object-contain p-1.5"
           onError={() => setFailed(true)}
         />
@@ -160,6 +161,7 @@ function PlayerAvatar({ player, size = "size-8" }: { player: Player | null; size
           alt=""
           width={size === "size-10" ? 40 : 32}
           height={size === "size-10" ? 40 : 32}
+          unoptimized
           loading="lazy"
           decoding="async"
           className="size-full object-cover"

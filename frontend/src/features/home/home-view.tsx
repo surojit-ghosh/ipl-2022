@@ -30,6 +30,7 @@ function TeamLogo({ team, large }: { team: MatchCard["teamA"]; large?: boolean }
           alt=""
           width={large ? 40 : 32}
           height={large ? 40 : 32}
+          unoptimized
           className="size-full object-contain p-1"
           onError={() => setFailed(true)}
         />
