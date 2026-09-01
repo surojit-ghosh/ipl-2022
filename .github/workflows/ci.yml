@@ -133,6 +133,6 @@ jobs:
             git pull --ff-only origin main
             docker compose pull
             docker compose up -d db
-            docker compose run --rm -T migrate
+            docker compose run --rm --interactive=false migrate
             docker compose up -d --force-recreate --remove-orphans backend frontend caddy
           EOF
