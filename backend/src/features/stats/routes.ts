@@ -37,40 +37,46 @@ statsRouter.get("/bowling", async (req, res, next) => {
 statsRouter.get("/teams", async (req, res, next) => {
   try {
     const scope = queryScope(req.query.scope);
-    const [teams, performance] = await Promise.all([
-      database().team.findMany({
-        include: { matchesAsTeamA: true, matchesAsTeamB: true },
-      }),
+    const [performance, matches] = await Promise.all([
       teamPerformanceStats(scope),
+      database().match.findMany({
+        select: { teamAId: true, teamBId: true, winningTeamId: true, subtitle: true },
+      }),
     ]);
-    const performanceByTeam = new Map(performance.map((item) => [item.team.id, item]));
-    const data = teams
-      .map((team) => {
-        const matches = [...team.matchesAsTeamA, ...team.matchesAsTeamB];
-        const scopedMatches = matches.filter((match) => matchesScope(match.subtitle, scope));
-        const stats = performanceByTeam.get(team.id);
+    const scopedMatches = matches.filter((match) => matchesScope(match.subtitle, scope));
+    const matchCounts = new Map<number, { matches: number; wins: number; losses: number }>();
+    for (const match of scopedMatches) {
+      for (const teamId of [match.teamAId, match.teamBId]) {
+        const counts = matchCounts.get(teamId) ?? { matches: 0, wins: 0, losses: 0 };
+        counts.matches += 1;
+        if (match.winningTeamId === teamId) counts.wins += 1;
+        else if (match.winningTeamId !== null) counts.losses += 1;
+        matchCounts.set(teamId, counts);
+      }
+    }
+    const data = performance
+      .map((stats) => {
+        const counts = matchCounts.get(stats.team.id) ?? { matches: 0, wins: 0, losses: 0 };
         return {
-          team,
+          team: stats.team,
           scope,
-          matches: scopedMatches.length,
-          wins: scopedMatches.filter((match) => match.winningTeamId === team.id).length,
-          losses: scopedMatches.filter(
-            (match) => match.winningTeamId !== null && match.winningTeamId !== team.id,
-          ).length,
-          runs: stats?.runs ?? 0,
-          wickets: stats?.wickets ?? 0,
-          runsConceded: stats?.runsConceded ?? 0,
-          fifties: stats?.fifties ?? 0,
-          centuries: stats?.centuries ?? 0,
-          highestScore: stats?.highestScore ?? null,
-          lowestScore: stats?.lowestScore ?? null,
-          extrasConceded: stats?.extrasConceded ?? 0,
-          fourWicketHauls: stats?.fourWicketHauls ?? 0,
-          fiveWicketHauls: stats?.fiveWicketHauls ?? 0,
-          highestWinMarginRuns: stats?.highestWinMarginRuns ?? null,
-          lowestWinMarginRuns: stats?.lowestWinMarginRuns ?? null,
-          highestWinMarginWickets: stats?.highestWinMarginWickets ?? null,
-          lowestWinMarginWickets: stats?.lowestWinMarginWickets ?? null,
+          matches: counts.matches,
+          wins: counts.wins,
+          losses: counts.losses,
+          runs: stats.runs,
+          wickets: stats.wickets,
+          runsConceded: stats.runsConceded,
+          fifties: stats.fifties,
+          centuries: stats.centuries,
+          highestScore: stats.highestScore,
+          lowestScore: stats.lowestScore,
+          extrasConceded: stats.extrasConceded,
+          fourWicketHauls: stats.fourWicketHauls,
+          fiveWicketHauls: stats.fiveWicketHauls,
+          highestWinMarginRuns: stats.highestWinMarginRuns,
+          lowestWinMarginRuns: stats.lowestWinMarginRuns,
+          highestWinMarginWickets: stats.highestWinMarginWickets,
+          lowestWinMarginWickets: stats.lowestWinMarginWickets,
         };
       })
       .sort((a, b) => b.wins - a.wins);

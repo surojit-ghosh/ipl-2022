@@ -7,6 +7,8 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+
+ARG CACHE_BUST
 RUN pnpm build
 RUN pnpm prune --prod
 

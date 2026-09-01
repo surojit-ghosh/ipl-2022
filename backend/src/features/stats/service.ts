@@ -306,6 +306,13 @@ export async function bowlingStats(
   return result
     .filter((row) => category !== "bowling_best_bowling_figures" || row.wickets > 0)
     .sort((a, b) => {
+      if (category === "bowling_best_bowling_figures") {
+        const wicketDiff = (b.wickets ?? 0) - (a.wickets ?? 0);
+        if (wicketDiff !== 0) return wicketDiff;
+        const runsDiff = (a.runsConceded ?? 0) - (b.runsConceded ?? 0);
+        if (runsDiff !== 0) return runsDiff;
+        return a.player.name.localeCompare(b.player.name);
+      }
       const difference = (value(b) ?? -1) - (value(a) ?? -1);
       const orderedDifference =
         category.includes("economy") || category.includes("strike") || category.includes("averages")

@@ -100,6 +100,8 @@ jobs:
         with:
           context: ./frontend
           push: true
+          build-args: |
+            CACHE_BUST=${{ github.sha }}
           tags: |
             ${{ env.IMAGE_PREFIX }}-frontend:latest
             ${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
@@ -123,13 +125,14 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" <<'EOF'
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "AIKO_IMAGE_TAG=$IMAGE_TAG bash -s" <<'EOF'
             set -eu
             cd ~/projects/aiko
             git pull --ff-only origin main
             docker compose pull
             docker compose up -d db
             docker compose run --rm migrate
-            docker compose up -d --force-recreate --remove-orphans
+            docker compose up -d --force-recreate --remove-orphans backend frontend caddy
           EOF
