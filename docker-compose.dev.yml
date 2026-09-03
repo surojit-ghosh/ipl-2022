@@ -24,6 +24,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    image: aiko-backend:dev
+    command: ["pnpm", "dev"]
 
     env_file:
       - ./backend/.env
@@ -44,6 +46,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    image: aiko-frontend:dev
+    command: ["pnpm", "dev"]
+
+    environment:
+      - BACKEND_URL=http://backend:3001
 
     env_file:
       - ./frontend/.env
