@@ -1,4 +1,7 @@
+import { config } from "dotenv";
 import { z } from "zod";
+
+config();
 
 const schema = z.object({
   PORT: z.coerce.number().int().positive().default(3001),
