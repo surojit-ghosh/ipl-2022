@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -81,9 +82,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="relative mx-auto flex min-h-14 w-full max-w-[1280px] items-center gap-2 px-6">
           <Link
             href="/"
-            className="font-heading text-[22px] leading-none text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            Aiko
+            <Image src="/logo.png" alt="Aiko" height={28} width={112} priority />
           </Link>
           <div className="hidden min-w-0 flex-1 md:block">
             <NavLinks />
