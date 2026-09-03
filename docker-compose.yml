@@ -18,7 +18,7 @@ services:
     image: ghcr.io/surojit-ghosh/ipl-2022-migrate:${AIKO_IMAGE_TAG:-latest}
     env_file:
       - ./backend/.env
-    command: ["prisma", "migrate", "deploy"]
+    command: ["pnpm", "exec", "prisma", "migrate", "deploy"]
     depends_on:
       db:
         condition: service_healthy
