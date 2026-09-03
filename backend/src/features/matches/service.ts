@@ -42,16 +42,27 @@ export const matchCardSelect = {
   },
 };
 
+const PLAYOFF_MATCH_NUMBERS = ["71", "72", "73", "74"];
+
 export async function listMatches(opts: {
   page: number;
   pageSize: number;
   teamId?: number;
   venueId?: number;
+  stage?: "league" | "playoffs";
   order: "asc" | "desc";
 }) {
+  const stageFilter =
+    opts.stage === "playoffs"
+      ? { matchNumber: { in: PLAYOFF_MATCH_NUMBERS } }
+      : opts.stage === "league"
+        ? { NOT: { matchNumber: { in: PLAYOFF_MATCH_NUMBERS } } }
+        : {};
+
   const where = {
     ...(opts.teamId ? { OR: [{ teamAId: opts.teamId }, { teamBId: opts.teamId }] } : {}),
     ...(opts.venueId ? { venueId: opts.venueId } : {}),
+    ...stageFilter,
   };
   const db = database();
   const [matches, total] = await Promise.all([

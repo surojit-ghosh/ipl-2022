@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { MatchBlock } from "@/features/home/home-view";
+import { MatchGridCard } from "@/features/home/components/match-grid-card";
 
 import type { VenueDetail, VenueStats } from "./types";
 
@@ -53,7 +53,7 @@ export function VenueDetailView({ venue, stats }: { venue: VenueDetail; stats: V
         </div>
         {venue.matches.length ? (
           <div className="aiko-match-list space-y-3">
-            {venue.matches.map((match) => <MatchBlock key={match.id} match={match} />)}
+            {venue.matches.map((match) => <MatchGridCard key={match.id} match={match} />)}
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">

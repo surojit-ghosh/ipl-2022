@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   numberQuery,
+  optionalEnumQuery,
   orderQuery,
   pagedQuery,
   pathId,
@@ -38,6 +39,11 @@ matchesRouter.get("/", async (req, res, next) => {
       pageSize,
       teamId: numberQuery(req.query.team_id, "team_id", { min: 1 }),
       venueId: numberQuery(req.query.venue_id, "venue_id", { min: 1 }),
+      stage: optionalEnumQuery(
+        req.query.stage,
+        ["league", "playoffs"] as const,
+        "stage",
+      ),
       order: orderQuery(req.query.order),
     });
     res.json(result);

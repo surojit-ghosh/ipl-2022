@@ -1,6 +1,6 @@
 "use client";
 
-import { MatchBlock } from "@/features/home/home-view";
+import { MatchGridCard } from "@/features/home/components/match-grid-card";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -170,7 +170,7 @@ export function TeamDetailView({
           </div>
           {matches.data.length ? (
             <div className="aiko-match-list space-y-3">
-              {matches.data.map((match) => <MatchBlock key={match.id} match={match} />)}
+              {matches.data.map((match) => <MatchGridCard key={match.id} match={match} />)}
             </div>
           ) : (
             <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">No matches found.</p>

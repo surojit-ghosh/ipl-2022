@@ -1,5 +1,10 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+
+import { PageHeader } from "@/components/page-header";
+import { fetchVenues } from "./api";
 import type { VenueSummary } from "./types";
 
 function venueLocation(venue: VenueSummary) {
@@ -22,14 +27,23 @@ function VenueCard({ venue }: { venue: VenueSummary }) {
   );
 }
 
-export function VenuesView({ venues }: { venues: VenueSummary[] }) {
+export function VenuesView({ venues: initialVenues }: { venues: VenueSummary[] }) {
+  const { data: venues = initialVenues } = useQuery({
+    queryKey: ["venues"],
+    queryFn: async () => {
+      const res = await fetchVenues();
+      return res.data;
+    },
+    initialData: initialVenues,
+  });
+
   return (
     <div className="space-y-8">
-      <header className="border-b border-border pb-6">
-        <p className="mb-1 text-sm text-muted-foreground">Venue directory</p>
-        <h1 className="font-heading text-3xl text-foreground">IPL 2022 venues</h1>
-        <p className="mt-2 text-sm text-text-secondary">{venues.length} venues</p>
-      </header>
+      <PageHeader
+        eyebrow="IPL 2022 · Stadium Telemetry"
+        title="IPL 2022 Venues"
+        subtitle={`${venues.length} official host stadiums across India`}
+      />
 
       {venues.length ? (
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

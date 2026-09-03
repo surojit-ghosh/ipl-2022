@@ -47,6 +47,19 @@ export function enumQuery<T extends string>(
   return text as T;
 }
 
+export function optionalEnumQuery<T extends string>(
+  value: unknown,
+  values: readonly T[],
+  label: string,
+): T | undefined {
+  const text = queryText(value, label);
+  if (text === undefined) return undefined;
+  if (!values.includes(text as T)) {
+    throw new RequestValidationError(`${label} must be one of: ${values.join(", ")}`);
+  }
+  return text as T;
+}
+
 export function stringQuery(value: unknown, label: string): string | undefined {
   return queryText(value, label);
 }

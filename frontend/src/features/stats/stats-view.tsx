@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+
+import { PageHeader } from "@/components/page-header";
 
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -658,68 +661,33 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
   const [scope, setScope] = useState<StatsScope>(initialData.scope);
   const [battingCategory, setBattingCategory] = useState<BattingCategory>(initialData.battingCategory);
   const [bowlingCategory, setBowlingCategory] = useState<BowlingCategory>(initialData.bowlingCategory);
-  const [data, setData] = useState(initialData);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function changeScope(nextScope: StatsScope) {
-    if (nextScope === scope || loading) return;
-    const previousScope = scope;
-    setScope(nextScope);
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await fetchStats(nextScope, battingCategory, bowlingCategory));
-    } catch (cause) {
-      setScope(previousScope);
-      setError(cause instanceof Error ? cause.message : "Could not load stats");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function changeBattingCategory(nextCategory: BattingCategory) {
-    if (nextCategory === battingCategory || loading) return;
-    const previousCategory = battingCategory;
-    setBattingCategory(nextCategory);
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await fetchStats(scope, nextCategory, bowlingCategory));
-    } catch (cause) {
-      setBattingCategory(previousCategory);
-      setError(cause instanceof Error ? cause.message : "Could not load stats");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function changeBowlingCategory(nextCategory: BowlingCategory) {
-    if (nextCategory === bowlingCategory || loading) return;
-    const previousCategory = bowlingCategory;
-    setBowlingCategory(nextCategory);
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await fetchStats(scope, battingCategory, nextCategory));
-    } catch (cause) {
-      setBowlingCategory(previousCategory);
-      setError(cause instanceof Error ? cause.message : "Could not load stats");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    data = initialData,
+    isFetching: loading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["stats", { scope, battingCategory, bowlingCategory }],
+    queryFn: () => fetchStats(scope, battingCategory, bowlingCategory),
+    initialData:
+      scope === initialData.scope &&
+      battingCategory === initialData.battingCategory &&
+      bowlingCategory === initialData.bowlingCategory
+        ? initialData
+        : undefined,
+  });
 
   const battingCategoryDetails = BATTING_CATEGORIES.find((item) => item.id === battingCategory) ?? BATTING_CATEGORIES[0];
   const bowlingCategoryDetails = BOWLING_CATEGORIES.find((item) => item.id === bowlingCategory) ?? BOWLING_CATEGORIES[0];
 
   return (
     <div className="space-y-8" aria-busy={loading}>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-sm text-muted-foreground">Leaderboards</p>
-          <h1 className="font-heading text-3xl text-foreground">IPL 2022 stats</h1>
-        </div>
+      <PageHeader
+        eyebrow="IPL 2022 · Analytics & Metrics"
+        title="IPL 2022 Stats"
+        subtitle="Leaderboards for batting, bowling, and team milestones"
+      >
         <div className="flex flex-wrap gap-2" aria-label="Stats scope">
           {SCOPES.map((item) => (
             <Button
@@ -729,17 +697,17 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
               variant={scope === item.id ? "default" : "outline"}
               disabled={loading}
               aria-pressed={scope === item.id}
-              onClick={() => void changeScope(item.id)}
+              onClick={() => setScope(item.id)}
             >
               {item.label}
             </Button>
           ))}
         </div>
-      </header>
+      </PageHeader>
 
-      {error ? (
+      {isError ? (
         <p className="rounded-lg border border-danger/30 bg-card px-4 py-3 text-sm text-danger" role="alert">
-          {error}. Choose another scope to retry.
+          {error instanceof Error ? error.message : "Could not load stats"}. Choose another scope to retry.
         </p>
       ) : null}
 
@@ -761,7 +729,7 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
           <SectionHeading title={battingCategoryDetails.label} description={battingCategoryDetails.description} />
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Batting stat
-            <Select value={battingCategory} disabled={loading} onValueChange={(value) => void changeBattingCategory(value as BattingCategory)}>
+            <Select value={battingCategory} disabled={loading} onValueChange={(value) => setBattingCategory(value as BattingCategory)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {BATTING_CATEGORIES.map((item) => (
@@ -781,7 +749,7 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
           <SectionHeading title={bowlingCategoryDetails.label} description={bowlingCategoryDetails.description} />
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Bowling stat
-            <Select value={bowlingCategory} disabled={loading} onValueChange={(value) => void changeBowlingCategory(value as BowlingCategory)}>
+            <Select value={bowlingCategory} disabled={loading} onValueChange={(value) => setBowlingCategory(value as BowlingCategory)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {BOWLING_CATEGORIES.map((item) => (

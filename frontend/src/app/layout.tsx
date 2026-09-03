@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ReactLenis } from "lenis/react";
 
 import { AppShell } from "@/components/app-shell";
+import { Providers } from "@/components/providers";
 
 import "./globals.css";
 import "lenis/dist/lenis.css";
@@ -26,15 +27,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full bg-background font-sans text-foreground">
-        <ReactLenis
-          root
-          options={{ lerp: 0.08, duration: 1.1, smoothWheel: true, respectReducedMotion: true }}
-        >
-          <AppShell>{children}</AppShell>
-        </ReactLenis>
+        <Providers>
+          <ReactLenis
+            root
+            options={{ lerp: 0.08, duration: 1.1, smoothWheel: true, respectReducedMotion: true }}
+          >
+            <AppShell>{children}</AppShell>
+          </ReactLenis>
+        </Providers>
       </body>
     </html>
   );

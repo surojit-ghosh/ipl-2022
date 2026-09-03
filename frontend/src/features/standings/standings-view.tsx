@@ -3,7 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
+import { PageHeader } from "@/components/page-header";
+import { fetchStandings } from "./api";
 import type { Standing, StandingTeam } from "./types";
 
 function teamImage(team: StandingTeam) {
@@ -114,17 +117,25 @@ function StandingRow({ standing }: { standing: Standing }) {
   );
 }
 
-export function StandingsView({ standings }: { standings: Standing[] }) {
+export function StandingsView({ standings: initialStandings }: { standings: Standing[] }) {
+  const { data: standings = initialStandings } = useQuery({
+    queryKey: ["standings"],
+    queryFn: async () => {
+      const res = await fetchStandings();
+      return res.data;
+    },
+    initialData: initialStandings,
+  });
+
   const season = standings[0]?.season;
 
   return (
-    <div>
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-sm text-muted-foreground">League table</p>
-          <h1 className="font-heading text-3xl text-foreground">{season ? `IPL ${season.year}` : "Standings"}</h1>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="IPL 2022 · League Standings"
+        title={season ? `IPL ${season.year} Standings` : "Standings"}
+        subtitle="Official franchise table · Net Run Rate (NRR) · Form guide"
+      />
 
       {standings.length ? (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
