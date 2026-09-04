@@ -1,10 +1,11 @@
 "use client";
 
 import { MatchGridCard } from "@/features/home/components/match-grid-card";
-import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
+import { EntityImage } from "@/components/entity-image";
+import { EmptyState } from "@/components/empty-state";
+import { StatCard as SharedStatCard } from "@/components/stat-card";
 import type { SquadMember, TeamMatches, TeamProfile, TeamStatSnapshot, TeamStats } from "./types";
 
 function teamImage(team: TeamProfile) {
@@ -12,26 +13,23 @@ function teamImage(team: TeamProfile) {
 }
 
 function TeamMark({ team }: { team: TeamProfile }) {
-  const [failed, setFailed] = useState(false);
   const image = teamImage(team);
   return (
-    <span className="inline-flex size-20 shrink-0 items-center justify-center rounded-full bg-muted text-xl font-medium text-muted-foreground sm:size-24">
-      {image && !failed ? (
-        <Image src={image} alt="" width={96} height={96} unoptimized className="size-full object-contain p-2" onError={() => setFailed(true)} />
-      ) : (
-        team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)
-      )}
-    </span>
+    <EntityImage
+      kind="team"
+      src={image}
+      alt=""
+      width={96}
+      height={96}
+      loading="eager"
+      className="size-20 rounded-full sm:size-24"
+      imageClassName="object-contain p-2"
+    />
   );
 }
 
 function StatCard({ label, value }: { label: string; value: string | number | null }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <p className="text-xs tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 font-mono text-xl tabular-nums text-foreground">{value ?? "—"}</p>
-    </div>
-  );
+  return <SharedStatCard label={label} value={value ?? "—"} />;
 }
 
 function metricLabel(metric: string) {
@@ -55,33 +53,19 @@ function SnapshotCard({ snapshot }: { snapshot: TeamStatSnapshot }) {
 }
 
 function SquadRow({ member }: { member: SquadMember }) {
-  const [failed, setFailed] = useState(false);
   const image = member.player.logoUrl ?? member.player.thumbnailUrl;
-  const initials = member.player.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <div className="flex min-w-0 items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
-      <span className="inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium text-muted-foreground">
-        {image && !failed ? (
-          <Image
-            src={image}
-            alt=""
-            width={36}
-            height={36}
-            unoptimized
-            loading="lazy"
-            className="size-full object-cover"
-            onError={() => setFailed(true)}
-          />
-        ) : (
-          initials || "—"
-        )}
-      </span>
+      <EntityImage
+        kind="player"
+        src={image}
+        alt=""
+        width={36}
+        height={36}
+        className="size-9 rounded-full"
+        imageClassName="object-cover"
+      />
       <div className="min-w-0">
         <Link
           href={`/players/${member.player.id}`}
@@ -139,7 +123,7 @@ export function TeamDetailView({
             {stats.snapshots.map((snapshot) => <SnapshotCard key={snapshot.id} snapshot={snapshot} />)}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">No stored team metrics available.</p>
+          <EmptyState title="No stored team metrics" description="The archive has no source metric snapshots for this franchise." />
         )}
       </section>
 
@@ -155,7 +139,7 @@ export function TeamDetailView({
               .map((member) => <SquadRow key={`${member.season.year}-${member.player.id}`} member={member} />)}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">No squad data available.</p>
+          <EmptyState title="No squad data" description="The IPL 2022 squad endpoint returned no players for this franchise." />
         )}
       </section>
 
@@ -173,7 +157,7 @@ export function TeamDetailView({
               {matches.data.map((match) => <MatchGridCard key={match.id} match={match} />)}
             </div>
           ) : (
-            <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">No matches found.</p>
+            <EmptyState title="No matches found" description="This franchise has no linked IPL 2022 match records." />
           )}
         </div>
       </section>

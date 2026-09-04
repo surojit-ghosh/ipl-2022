@@ -2,11 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 
+import { DataTable } from "@/components/data-table";
+import { EntityImage } from "@/components/entity-image";
+import { EmptyState } from "@/components/empty-state";
+import { StatCard as SharedStatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 import type {
@@ -69,29 +73,17 @@ function tossDecisionLabel(value: number | null) {
 }
 
 function TeamLogo({ team, className }: { team: Team; className?: string }) {
-  const [failed, setFailed] = useState(false);
   const src = logoSrc(team);
   return (
-    <span
-      className={cn(
-        "inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground",
-        className,
-      )}
-    >
-      {src && !failed ? (
-        <Image
-          src={src}
-          alt=""
-          width={48}
-          height={48}
-          unoptimized
-          className="size-full object-contain p-1.5"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)
-      )}
-    </span>
+    <EntityImage
+      kind="team"
+      src={src}
+      alt=""
+      width={48}
+      height={48}
+      className={cn("size-12 rounded-full", className)}
+      imageClassName="object-contain p-1.5"
+    />
   );
 }
 
@@ -131,46 +123,23 @@ function TeamScore({ match, team }: { match: MatchDetail; team: Team }) {
 }
 
 function StatCard({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <p className="text-xs tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 wrap-break-word text-sm font-medium text-foreground">{value || "—"}</p>
-    </div>
-  );
-}
-
-function EmptyState({ children }: { children: string }) {
-  return <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">{children}</p>;
+  return <SharedStatCard label={label} value={value || "—"} />;
 }
 
 function PlayerAvatar({ player, size = "size-8" }: { player: Player | null; size?: "size-8" | "size-10" }) {
-  const [failed, setFailed] = useState(false);
   const src = player?.logoUrl ?? player?.thumbnailUrl;
-  const initials = player?.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const px = size === "size-10" ? 40 : 32;
 
   return (
-    <span className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium text-muted-foreground", size)}>
-      {src && !failed ? (
-        <Image
-          src={src}
-          alt=""
-          width={size === "size-10" ? 40 : 32}
-          height={size === "size-10" ? 40 : 32}
-          unoptimized
-          loading="lazy"
-          decoding="async"
-          className="size-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        initials || "—"
-      )}
-    </span>
+    <EntityImage
+      kind="player"
+      src={src}
+      alt=""
+      width={px}
+      height={px}
+      className={cn("rounded-full", size)}
+      imageClassName="object-cover"
+    />
   );
 }
 
@@ -201,10 +170,6 @@ function PlayerFact({ label, player }: { label: string; player: Player | null })
       </div>
     </div>
   );
-}
-
-function TableShell({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-x-auto rounded-lg border border-border bg-card">{children}</div>;
 }
 
 function BestOfMatch({ match }: { match: MatchDetail }) {
@@ -245,7 +210,7 @@ function BestOfMatch({ match }: { match: MatchDetail }) {
               </div>
             ))
           ) : (
-            <EmptyState>No batting card yet.</EmptyState>
+            <EmptyState title="No batting card yet" description="The scorecard does not include completed batting figures for this match." />
           )}
         </CardContent>
       </Card>
@@ -265,7 +230,7 @@ function BestOfMatch({ match }: { match: MatchDetail }) {
               </div>
             ))
           ) : (
-            <EmptyState>No bowling card yet.</EmptyState>
+            <EmptyState title="No bowling card yet" description="The scorecard does not include completed bowling figures for this match." />
           )}
         </CardContent>
       </Card>
@@ -287,32 +252,32 @@ function SummaryTab({ match }: { match: MatchDetail }) {
 }
 
 function BattingTable({ rows }: { rows: BattingScore[] }) {
-  if (!rows.length) return <EmptyState>No batting data for this innings.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No batting data" description="This innings has no batting rows in the scorecard." />;
   return (
-    <TableShell>
-      <table className="w-full min-w-245 text-sm">
-        <thead>
-          <tr>
-            <th className="px-4 py-2 text-left">Batter</th>
-            <th className="px-4 py-2 text-right">Pos</th>
-            <th className="px-4 py-2 text-left">Status</th>
-            <th className="px-4 py-2 text-left">Dismissal</th>
-            <th className="px-4 py-2 text-right">R</th>
-            <th className="px-4 py-2 text-right">B</th>
-            <th className="px-4 py-2 text-right">4s</th>
-            <th className="px-4 py-2 text-right">6s</th>
-            <th className="px-4 py-2 text-right">SR</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Batting scorecard" minWidth="min-w-245">
+        <TableCaption className="sr-only">Batting scorecard for the selected innings</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Batter</TableHead>
+            <TableHead className="text-right">Pos</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Dismissal</TableHead>
+            <TableHead className="text-right">R</TableHead>
+            <TableHead className="text-right">B</TableHead>
+            <TableHead className="text-right">4s</TableHead>
+            <TableHead className="text-right">6s</TableHead>
+            <TableHead className="text-right">SR</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="px-4 py-3">
+            <TableRow key={row.id}>
+              <TableCell>
                 <PlayerLine player={row.player} meta={row.role} />
-              </td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.position ?? "—"}</td>
-              <td className="px-4 py-3 text-text-secondary">{row.isBatting ? "batting" : "completed"}</td>
-              <td className="max-w-80 px-4 py-3 text-text-secondary">
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.position ?? "—"}</TableCell>
+              <TableCell className="text-text-secondary">{row.isBatting ? "batting" : "completed"}</TableCell>
+              <TableCell className="max-w-80 text-text-secondary">
                 <p>{row.howOut ?? row.dismissal ?? "not out"}</p>
                 {row.bowler || row.firstFielder || row.secondFielder || row.thirdFielder ? (
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -323,59 +288,57 @@ function BattingTable({ rows }: { rows: BattingScore[] }) {
                       .join("")}
                   </p>
                 ) : null}
-              </td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.runs)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.ballsFaced)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.fours)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.sixes)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.strikeRate, 2)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.runs)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.ballsFaced)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.fours)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.sixes)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.strikeRate, 2)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </TableShell>
+        </TableBody>
+    </DataTable>
   );
 }
 
 function BowlingTable({ rows }: { rows: BowlingFigure[] }) {
-  if (!rows.length) return <EmptyState>No bowling data for this innings.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No bowling data" description="This innings has no bowling rows in the scorecard." />;
   return (
-    <TableShell>
-      <table className="w-full min-w-160 text-sm">
-        <thead>
-          <tr>
-            <th className="px-4 py-2 text-left">Bowler</th>
-            <th className="px-4 py-2 text-right">Pos</th>
-            <th className="px-4 py-2 text-left">Status</th>
-            <th className="px-4 py-2 text-right">O</th>
-            <th className="px-4 py-2 text-right">M</th>
-            <th className="px-4 py-2 text-right">R</th>
-            <th className="px-4 py-2 text-right">W</th>
-            <th className="px-4 py-2 text-right">NB</th>
-            <th className="px-4 py-2 text-right">WD</th>
-            <th className="px-4 py-2 text-right">Econ</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Bowling scorecard" minWidth="min-w-160">
+        <TableCaption className="sr-only">Bowling scorecard for the selected innings</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Bowler</TableHead>
+            <TableHead className="text-right">Pos</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">O</TableHead>
+            <TableHead className="text-right">M</TableHead>
+            <TableHead className="text-right">R</TableHead>
+            <TableHead className="text-right">W</TableHead>
+            <TableHead className="text-right">NB</TableHead>
+            <TableHead className="text-right">WD</TableHead>
+            <TableHead className="text-right">Econ</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="px-4 py-3">
+            <TableRow key={row.id}>
+              <TableCell>
                 <PlayerLine player={row.player} />
-              </td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.position ?? "—"}</td>
-              <td className="px-4 py-3 text-text-secondary">{row.isBowling ? "bowling" : "completed"}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.overs ?? "—"}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.maidens)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.runsConceded)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.wickets)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.noBalls)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.wides)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{numberLabel(row.economy, 2)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.position ?? "—"}</TableCell>
+              <TableCell className="text-text-secondary">{row.isBowling ? "bowling" : "completed"}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.overs ?? "—"}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.maidens)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.runsConceded)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.wickets)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.noBalls)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.wides)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{numberLabel(row.economy, 2)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </TableShell>
+        </TableBody>
+    </DataTable>
   );
 }
 
@@ -393,7 +356,7 @@ function ExtrasLine({ inning }: { inning: Inning }) {
 }
 
 function WicketsLine({ inning }: { inning: Inning }) {
-  if (!inning.fallOfWickets.length) return <EmptyState>No fall-of-wickets data.</EmptyState>;
+  if (!inning.fallOfWickets.length) return <EmptyState title="No fall-of-wickets data" description="This innings has no wicket progression in the archive." />;
   return (
     <div className="flex flex-wrap gap-2">
       {inning.fallOfWickets.map((wicket) => (
@@ -415,7 +378,7 @@ function FieldingLine({ rows }: { rows: FieldingFigure[] }) {
       row.substitute ||
       (row.catches ?? 0) + (row.runOutThrower ?? 0) + (row.runOutCatcher ?? 0) + (row.directHits ?? 0) + (row.stumpings ?? 0) > 0,
   );
-  if (!active.length) return <EmptyState>No fielding figures.</EmptyState>;
+  if (!active.length) return <EmptyState title="No fielding figures" description="No catches, run outs, stumpings, or substitute fielding rows are listed." />;
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {active.map((row) => (
@@ -436,7 +399,7 @@ function FieldingLine({ rows }: { rows: FieldingFigure[] }) {
 function ScorecardTab({ match }: { match: MatchDetail }) {
   const [inningId, setInningId] = useState(match.innings[0]?.id ?? 0);
   const inning = match.innings.find((item) => item.id === inningId) ?? match.innings[0];
-  if (!inning) return <EmptyState>No scorecard data.</EmptyState>;
+  if (!inning) return <EmptyState title="No scorecard data" description="The scorecard endpoint did not return innings for this match." />;
 
   return (
     <div className="space-y-5">
@@ -553,7 +516,7 @@ function CommentaryTab({ commentary }: { commentary: CommentaryEvent[] }) {
           ))}
         </div>
       ) : (
-        <EmptyState>No commentary for this filter.</EmptyState>
+        <EmptyState title="No commentary for this filter" description="Try a broader innings or event filter." />
       )}
     </div>
   );
@@ -626,9 +589,7 @@ function WagonGround({ shots }: { shots: WagonShot[] }) {
               strokeOpacity={runs >= 4 ? 0.82 : runs === 0 ? 0.18 : 0.42}
               strokeLinecap="round"
             >
-              <title>
-                {shot.batter?.name ?? "Unknown batter"} · {runs} runs · {shot.zoneName ?? "Unknown zone"}
-              </title>
+              <title>{`${shot.batter?.name ?? "Unknown batter"} · ${runs} runs · ${shot.zoneName ?? "Unknown zone"}`}</title>
             </line>
           );
         })}
@@ -643,9 +604,7 @@ function WagonGround({ shots }: { shots: WagonShot[] }) {
         if (runs < 4) return null;
         return (
           <circle key={`marker-${shot.id}`} cx={x} cy={y} r={runs >= 6 ? 4 : 3} fill={runs >= 6 ? "var(--danger)" : "var(--brand)"}>
-            <title>
-              {shot.batter?.name ?? "Unknown batter"} · {runs} runs · {shot.zoneName ?? "Unknown zone"}
-            </title>
+            <title>{`${shot.batter?.name ?? "Unknown batter"} · ${runs} runs · ${shot.zoneName ?? "Unknown zone"}`}</title>
           </circle>
         );
       })}
@@ -730,24 +689,31 @@ function WagonWheelTab({ shots }: { shots: WagonShot[] }) {
               <p className="text-text-secondary"><span className="text-primary">Orange</span> = four · <span className="text-danger">Red</span> = six · grey = other.</p>
             </div>
           </div>
-          <TableShell>
-            <table className="w-full min-w-180 text-sm">
-              <thead><tr><th className="px-4 py-2 text-left">Innings</th><th className="px-4 py-2 text-left">Batter</th><th className="px-4 py-2 text-right">Runs</th><th className="px-4 py-2 text-left">Zone</th><th className="px-4 py-2 text-left">Event</th></tr></thead>
-              <tbody className="divide-y divide-border">
-                {filtered.slice(0, 50).map((shot) => (
-                  <tr key={shot.id}>
-                    <td className="px-4 py-3">{shot.inning.number} · {shot.sourceOver ?? "—"}</td>
-                    <td className="px-4 py-3">{shot.batter?.name ?? "Unknown"}</td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums">{shot.batRuns ?? shot.teamRuns ?? 0}</td>
-                    <td className="px-4 py-3">{shot.zoneName ?? "—"}</td>
-                    <td className="px-4 py-3 text-text-secondary">{shot.eventName ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableShell>
+          <DataTable label="Wagon wheel shot list" minWidth="min-w-180">
+            <TableCaption className="sr-only">Filtered wagon wheel shots for the selected match</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Innings</TableHead>
+                <TableHead>Batter</TableHead>
+                <TableHead className="text-right">Runs</TableHead>
+                <TableHead>Zone</TableHead>
+                <TableHead>Event</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.slice(0, 50).map((shot) => (
+                <TableRow key={shot.id}>
+                  <TableCell>{shot.inning.number} · {shot.sourceOver ?? "—"}</TableCell>
+                  <TableCell>{shot.batter?.name ?? "Unknown"}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{shot.batRuns ?? shot.teamRuns ?? 0}</TableCell>
+                  <TableCell>{shot.zoneName ?? "—"}</TableCell>
+                  <TableCell className="text-text-secondary">{shot.eventName ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </DataTable>
         </>
-      ) : <EmptyState>No archived shots match these filters.</EmptyState>}
+      ) : <EmptyState title="No archived shots match these filters" description="Try all innings, batters, run values, or field zones." />}
     </div>
   );
 }
@@ -772,7 +738,7 @@ function SnapshotList({ title, rows, bowler }: { title: string; rows: import("./
 }
 
 function HistoricalSnapshotTab({ snapshot }: { snapshot: HistoricalSnapshotResponse | null }) {
-  if (!snapshot) return <EmptyState>No archived historical snapshot available.</EmptyState>;
+  if (!snapshot) return <EmptyState title="No archived historical snapshot" description="The historical snapshot endpoint did not return a saved state for this match." />;
   const data = snapshot.payload;
   const score = data.live_score;
   const partnership = data.current_partnership;
@@ -844,7 +810,7 @@ function PlayingXiTab({ match }: { match: MatchDetail }) {
 }
 
 function XiList({ rows }: { rows: MatchPlayingXi[] }) {
-  if (!rows.length) return <EmptyState>No playing XI listed.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No playing XI listed" description="The match archive does not include a playing XI for this team." />;
   return (
     <ol className="space-y-3">
       {rows.map((row) => (
@@ -906,7 +872,7 @@ function InfoTab({ match }: { match: MatchDetail }) {
                 </div>
               ))
             ) : (
-              <EmptyState>No officials listed.</EmptyState>
+              <EmptyState title="No officials listed" description="The match archive does not include officiating details." />
             )}
           </CardContent>
         </Card>

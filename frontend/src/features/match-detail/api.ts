@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api";
+import { ApiError, fetchJson } from "@/lib/api";
 
 import type {
   CommentaryResponse,
@@ -9,33 +9,31 @@ import type {
 } from "./types";
 
 export async function fetchMatchDetail(id: string): Promise<MatchDetail | null> {
-  const response = await fetch(apiUrl(`/api/matches/${id}`), { cache: "no-store" });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error("Could not load match");
-  return response.json();
+  try {
+    return await fetchJson<MatchDetail>(`/api/matches/${id}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 export async function fetchMatchCommentary(id: string): Promise<CommentaryResponse> {
-  const response = await fetch(apiUrl(`/api/matches/${id}/commentary`), { cache: "no-store" });
-  if (!response.ok) throw new Error("Could not load commentary");
-  return response.json();
+  return fetchJson<CommentaryResponse>(`/api/matches/${id}/commentary`);
 }
 
 export async function fetchMatchScorecard(id: string): Promise<ScorecardResponse> {
-  const response = await fetch(apiUrl(`/api/matches/${id}/scorecard`), { cache: "no-store" });
-  if (!response.ok) throw new Error("Could not load scorecard");
-  return response.json();
+  return fetchJson<ScorecardResponse>(`/api/matches/${id}/scorecard`);
 }
 
 export async function fetchMatchWagonWheel(id: string): Promise<WagonWheelResponse> {
-  const response = await fetch(apiUrl(`/api/matches/${id}/wagon-wheel`), { cache: "no-store" });
-  if (!response.ok) throw new Error("Could not load wagon wheel");
-  return response.json();
+  return fetchJson<WagonWheelResponse>(`/api/matches/${id}/wagon-wheel`);
 }
 
 export async function fetchMatchHistoricalSnapshot(id: string): Promise<HistoricalSnapshotResponse | null> {
-  const response = await fetch(apiUrl(`/api/matches/${id}/historical-snapshot`), { cache: "no-store" });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error("Could not load historical snapshot");
-  return response.json();
+  try {
+    return await fetchJson<HistoricalSnapshotResponse>(`/api/matches/${id}/historical-snapshot`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }

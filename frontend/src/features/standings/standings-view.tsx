@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { DataTable } from "@/components/data-table";
+import { EntityImage } from "@/components/entity-image";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchStandings } from "./api";
 import type { Standing, StandingTeam } from "./types";
 
@@ -14,26 +16,17 @@ function teamImage(team: StandingTeam) {
 }
 
 function TeamMark({ team }: { team: StandingTeam }) {
-  const [failed, setFailed] = useState(false);
   const image = teamImage(team);
   return (
-    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-      {image && !failed ? (
-        <Image
-          src={image}
-          alt=""
-          width={36}
-          height={36}
-          unoptimized
-          loading="lazy"
-          decoding="async"
-          className="size-full object-contain p-1"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)
-      )}
-    </span>
+    <EntityImage
+      kind="team"
+      src={image}
+      alt=""
+      width={36}
+      height={36}
+      className="size-9 rounded-full"
+      imageClassName="object-contain p-1"
+    />
   );
 }
 
@@ -85,9 +78,9 @@ function Form({ resultsValue, matchesValue }: { resultsValue: string | null; mat
 }
 function StandingRow({ standing }: { standing: Standing }) {
   return (
-    <tr className="transition-colors duration-120 ease-out hover:bg-muted/60">
-      <td className="px-4 py-4 font-mono text-sm tabular-nums text-muted-foreground">{standing.position}</td>
-      <th scope="row" className="px-4 py-4 text-left">
+    <TableRow>
+      <TableCell className="font-mono text-sm text-muted-foreground tabular-nums">{standing.position}</TableCell>
+      <th scope="row" className="px-4 py-3 text-left align-middle">
         <Link
           href={`/teams/${standing.team.id}`}
           className="flex min-w-48 items-center gap-3 rounded-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
@@ -99,21 +92,21 @@ function StandingRow({ standing }: { standing: Standing }) {
           </span>
         </Link>
       </th>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.played)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.wins)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.losses)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.draws)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.noResults)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{standing.oversFor ?? "-"}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.runsFor)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{standing.oversAgainst ?? "-"}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.runsAgainst)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.points)}</td>
-      <td className="px-4 py-4 text-right font-mono tabular-nums">{number(standing.netRunRate, 3)}</td>
-      <td className="px-4 py-4">
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.played)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.wins)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.losses)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.draws)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.noResults)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{standing.oversFor ?? "-"}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.runsFor)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{standing.oversAgainst ?? "-"}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.runsAgainst)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.points)}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">{number(standing.netRunRate, 3)}</TableCell>
+      <TableCell>
         <Form resultsValue={standing.lastFiveResults} matchesValue={standing.lastFiveMatches} />
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -138,36 +131,32 @@ export function StandingsView({ standings: initialStandings }: { standings: Stan
       />
 
       {standings.length ? (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-225 text-sm">
-            <caption className="sr-only">IPL standings with team records, run totals, points, net run rate, and recent form</caption>
-            <thead>
-              <tr>
-                <th className="w-14 px-4 py-3 text-left">Pos</th>
-                <th className="px-4 py-3 text-left">Team</th>
-                <th className="px-4 py-3 text-right">P</th>
-                <th className="px-4 py-3 text-right">W</th>
-                <th className="px-4 py-3 text-right">L</th>
-                <th className="px-4 py-3 text-right">D</th>
-                <th className="px-4 py-3 text-right">NR</th>
-                <th className="px-4 py-3 text-right">Overs for</th>
-                <th className="px-4 py-3 text-right">Runs for</th>
-                <th className="px-4 py-3 text-right">Overs against</th>
-                <th className="px-4 py-3 text-right">Runs against</th>
-                <th className="px-4 py-3 text-right">Pts</th>
-                <th className="px-4 py-3 text-right">NRR</th>
-                <th className="px-4 py-3 text-left">Form</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {standings.map((standing) => <StandingRow key={standing.id} standing={standing} />)}
-            </tbody>
-          </table>
-        </div>
+        <DataTable label="IPL standings" minWidth="min-w-225">
+          <TableCaption className="sr-only">IPL standings with team records, run totals, points, net run rate, and recent form</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-14">Pos</TableHead>
+              <TableHead>Team</TableHead>
+              <TableHead className="text-right">P</TableHead>
+              <TableHead className="text-right">W</TableHead>
+              <TableHead className="text-right">L</TableHead>
+              <TableHead className="text-right">D</TableHead>
+              <TableHead className="text-right">NR</TableHead>
+              <TableHead className="text-right">Overs for</TableHead>
+              <TableHead className="text-right">Runs for</TableHead>
+              <TableHead className="text-right">Overs against</TableHead>
+              <TableHead className="text-right">Runs against</TableHead>
+              <TableHead className="text-right">Pts</TableHead>
+              <TableHead className="text-right">NRR</TableHead>
+              <TableHead>Form</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {standings.map((standing) => <StandingRow key={standing.id} standing={standing} />)}
+          </TableBody>
+        </DataTable>
       ) : (
-        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">
-          No standings available for this season yet.
-        </p>
+        <EmptyState title="No standings available" description="The IPL 2022 standings endpoint returned no table rows." />
       )}
     </div>
   );

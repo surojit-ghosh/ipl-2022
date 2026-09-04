@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronUp, Menu } from "lucide-react";
+import { ChevronUp, Menu, RadioTower } from "lucide-react";
 import { useLenis } from "lenis/react";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             key={item.href}
             href={item.href}
             onClick={() => onNavigate?.()}
+            aria-current={active ? "page" : undefined}
             className={cn(
               "flex min-h-11 items-center px-5 text-sm font-medium transition-colors duration-[120ms] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none",
               active ? "text-primary" : "text-text-secondary hover:text-primary",
@@ -71,11 +72,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-full">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-secondary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-secondary-foreground"
+      >
+        Skip to content
+      </a>
       <header className="sticky top-0 z-40 w-full">
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute inset-0 border-b border-border bg-card transition-opacity duration-[120ms] ease-[var(--ease-out)]",
+            "pointer-events-none absolute inset-0 border-b border-border bg-[color-mix(in_srgb,var(--bg-base)_82%,transparent)] backdrop-blur-md transition-opacity duration-[120ms] ease-[var(--ease-out)]",
             docked ? "opacity-100" : "opacity-0",
           )}
         />
@@ -84,7 +91,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             href="/"
             className="focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            <Image src="/logo.png" alt="Aiko" height={28} width={112} priority />
+            <Image
+              src="/logo.png"
+              alt="Aiko"
+              height={207}
+              width={557}
+              priority
+              className="h-7 w-auto"
+              style={{ width: "auto", height: "28px" }}
+            />
           </Link>
           <div className="hidden min-w-0 flex-1 md:block">
             <NavLinks />
@@ -97,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-60 bg-card">
               <SheetHeader>
-                <SheetTitle className="font-heading text-xl font-normal">Menu</SheetTitle>
+                <SheetTitle className="font-display text-xl font-semibold">Aiko navigation</SheetTitle>
               </SheetHeader>
               <div className="px-2">
                 <NavLinks onNavigate={() => setMenuOpen(false)} />
@@ -107,16 +122,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1280px] px-6 py-8">{children}</main>
+      <main id="main-content" className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 sm:py-8">{children}</main>
 
-      {/* Minimal footer */}
       <footer className="mx-auto w-full max-w-[1280px] border-t border-border px-6 py-5">
-        <p className="font-mono text-[11px] text-muted-foreground">
-          © 2024 Aiko Telemetry Lab · IPL 2022 archive ·{" "}
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
+          <RadioTower className="size-3 text-primary" aria-hidden="true" />
+          <span>2024 Aiko Telemetry Lab</span>
+          <span>IPL 2022 archive</span>
           <Link href="/stats" className="hover:text-primary transition-colors">Stats</Link>
-          {" · "}
           <Link href="/players" className="hover:text-primary transition-colors">Players</Link>
-          {" · "}
           <Link href="/standings" className="hover:text-primary transition-colors">Standings</Link>
         </p>
       </footer>
@@ -139,4 +153,3 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

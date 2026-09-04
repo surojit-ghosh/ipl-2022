@@ -1,8 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+
+import { DataTable } from "@/components/data-table";
+import { EntityImage } from "@/components/entity-image";
+import { EmptyState } from "@/components/empty-state";
+import { StatCard as SharedStatCard } from "@/components/stat-card";
+import { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { CareerBatting, CareerBowling, PlayerDetail, PlayerSeasonStats } from "./types";
 
@@ -20,161 +24,136 @@ function dateLabel(value: string | null) {
   });
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 function PlayerMark({ player }: { player: PlayerDetail }) {
-  const [failed, setFailed] = useState(false);
   const image = player.logoUrl ?? player.thumbnailUrl;
   return (
-    <span className="inline-flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium text-muted-foreground">
-      {image && !failed ? (
-        <Image src={image} alt="" width={96} height={96} unoptimized className="size-full object-cover" onError={() => setFailed(true)} />
-      ) : (
-        initials(player.name)
-      )}
-    </span>
+    <EntityImage
+      kind="player"
+      src={image}
+      alt=""
+      width={96}
+      height={96}
+      loading="eager"
+      className="size-24 rounded-full"
+      imageClassName="object-cover"
+    />
   );
 }
 
 function StatCard({ label, value }: { label: string; value: string | number | null }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <p className="text-xs tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 wrap-break-word font-mono text-xl tabular-nums text-foreground">{value ?? "—"}</p>
-    </div>
-  );
+  return <SharedStatCard label={label} value={value ?? "—"} />;
 }
 
 function ProfileCard({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <p className="text-xs tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 wrap-break-word text-sm font-medium text-foreground">{value || "—"}</p>
-    </div>
-  );
+  return <SharedStatCard label={label} value={value || "—"} />;
 }
 
 function CareerBattingTable({ rows }: { rows: CareerBatting[] }) {
   const populated = rows.filter((row) => row.matches !== null || row.innings !== null || row.runs !== null);
-  if (!populated.length) return <EmptyState>No batting career data available.</EmptyState>;
+  if (!populated.length) return <EmptyState title="No batting career data" description="This player has no batting career rows in the archive." />;
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full min-w-245 text-sm">
-        <caption className="sr-only">Player batting career by format</caption>
-        <thead>
-          <tr>
-            <th className="px-4 py-3 text-left">Format</th>
-            <th className="px-4 py-3 text-right">M</th>
-            <th className="px-4 py-3 text-right">Inn</th>
-            <th className="px-4 py-3 text-right">NO</th>
-            <th className="px-4 py-3 text-right">Runs</th>
-            <th className="px-4 py-3 text-right">Balls</th>
-            <th className="px-4 py-3 text-right">HS</th>
-            <th className="px-4 py-3 text-right">100s</th>
-            <th className="px-4 py-3 text-right">50s</th>
-            <th className="px-4 py-3 text-right">4s</th>
-            <th className="px-4 py-3 text-right">6s</th>
-            <th className="px-4 py-3 text-right">Ct</th>
-            <th className="px-4 py-3 text-right">St</th>
-            <th className="px-4 py-3 text-right">Avg</th>
-            <th className="px-4 py-3 text-right">SR</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Player batting career" minWidth="min-w-245">
+        <TableCaption className="sr-only">Player batting career by format</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Format</TableHead>
+            <TableHead className="text-right">M</TableHead>
+            <TableHead className="text-right">Inn</TableHead>
+            <TableHead className="text-right">NO</TableHead>
+            <TableHead className="text-right">Runs</TableHead>
+            <TableHead className="text-right">Balls</TableHead>
+            <TableHead className="text-right">HS</TableHead>
+            <TableHead className="text-right">100s</TableHead>
+            <TableHead className="text-right">50s</TableHead>
+            <TableHead className="text-right">4s</TableHead>
+            <TableHead className="text-right">6s</TableHead>
+            <TableHead className="text-right">Ct</TableHead>
+            <TableHead className="text-right">St</TableHead>
+            <TableHead className="text-right">Avg</TableHead>
+            <TableHead className="text-right">SR</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {populated.map((row) => (
-            <tr key={row.id}>
-              <th scope="row" className="px-4 py-3 text-left font-medium">
+            <TableRow key={row.id}>
+              <th scope="row" className="px-4 py-3 text-left align-middle font-medium">
                 {row.format}
               </th>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.matches)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.innings)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.notOuts)}</td>
-              <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">{number(row.runs)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.balls)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.highest)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.hundreds)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.fifties)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.fours)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.sixes)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.catches)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.stumpings)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.sourceAverage, 2)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.sourceStrike, 2)}</td>
-            </tr>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.matches)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.innings)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.notOuts)}</TableCell>
+              <TableCell className="text-right font-mono font-medium tabular-nums">{number(row.runs)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.balls)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.highest)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.hundreds)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.fifties)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.fours)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.sixes)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.catches)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.stumpings)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.sourceAverage, 2)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.sourceStrike, 2)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+    </DataTable>
   );
 }
 
 function CareerBowlingTable({ rows }: { rows: CareerBowling[] }) {
   const populated = rows.filter((row) => row.matches !== null || row.innings !== null || row.wickets !== null);
-  if (!populated.length) return <EmptyState>No bowling career data available.</EmptyState>;
+  if (!populated.length) return <EmptyState title="No bowling career data" description="This player has no bowling career rows in the archive." />;
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full min-w-290 text-sm">
-        <caption className="sr-only">Player bowling career by format</caption>
-        <thead>
-          <tr>
-            <th className="px-4 py-3 text-left">Format</th>
-            <th className="px-4 py-3 text-right">M</th>
-            <th className="px-4 py-3 text-right">Inn</th>
-            <th className="px-4 py-3 text-right">Balls</th>
-            <th className="px-4 py-3 text-right">Overs</th>
-            <th className="px-4 py-3 text-right">Runs</th>
-            <th className="px-4 py-3 text-right">Wkts</th>
-            <th className="px-4 py-3 text-right">Best</th>
-            <th className="px-4 py-3 text-right">Best match</th>
-            <th className="px-4 py-3 text-right">4W</th>
-            <th className="px-4 py-3 text-right">5W</th>
-            <th className="px-4 py-3 text-right">10W</th>
-            <th className="px-4 py-3 text-right">Hat tricks</th>
-            <th className="px-4 py-3 text-right">Mdns</th>
-            <th className="px-4 py-3 text-right">Econ</th>
-            <th className="px-4 py-3 text-right">Avg</th>
-            <th className="px-4 py-3 text-right">SR</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Player bowling career" minWidth="min-w-290">
+        <TableCaption className="sr-only">Player bowling career by format</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Format</TableHead>
+            <TableHead className="text-right">M</TableHead>
+            <TableHead className="text-right">Inn</TableHead>
+            <TableHead className="text-right">Balls</TableHead>
+            <TableHead className="text-right">Overs</TableHead>
+            <TableHead className="text-right">Runs</TableHead>
+            <TableHead className="text-right">Wkts</TableHead>
+            <TableHead className="text-right">Best</TableHead>
+            <TableHead className="text-right">Best match</TableHead>
+            <TableHead className="text-right">4W</TableHead>
+            <TableHead className="text-right">5W</TableHead>
+            <TableHead className="text-right">10W</TableHead>
+            <TableHead className="text-right">Hat tricks</TableHead>
+            <TableHead className="text-right">Mdns</TableHead>
+            <TableHead className="text-right">Econ</TableHead>
+            <TableHead className="text-right">Avg</TableHead>
+            <TableHead className="text-right">SR</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {populated.map((row) => (
-            <tr key={row.id}>
-              <th scope="row" className="px-4 py-3 text-left font-medium">
+            <TableRow key={row.id}>
+              <th scope="row" className="px-4 py-3 text-left align-middle font-medium">
                 {row.format}
               </th>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.matches)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.innings)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.balls)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.overs, 1)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.runs)}</td>
-              <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">{number(row.wickets)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.bestInning ?? "—"}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.bestMatch ?? "—"}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.fours)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.fives)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.tens)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.hatTricks)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.maidens)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.sourceEconomy, 2)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.sourceAverage, 2)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.sourceStrike, 2)}</td>
-            </tr>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.matches)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.innings)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.balls)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.overs, 1)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.runs)}</TableCell>
+              <TableCell className="text-right font-mono font-medium tabular-nums">{number(row.wickets)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.bestInning ?? "—"}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.bestMatch ?? "—"}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.fours)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.fives)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.tens)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.hatTricks)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.maidens)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.sourceEconomy, 2)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.sourceAverage, 2)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.sourceStrike, 2)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+    </DataTable>
   );
-}
-
-function EmptyState({ children }: { children: string }) {
-  return <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">{children}</p>;
 }
 
 function SeasonStats({ stats }: { stats: PlayerSeasonStats }) {
@@ -239,7 +218,7 @@ export function PlayerDetailView({ player, stats }: { player: PlayerDetail; stat
               <Link
                 key={`${member.season.year}-${member.team.id}`}
                 href={`/teams/${member.team.id}`}
-                className="rounded-lg border border-border bg-card px-4 py-3 transition-[background-color,border-color,transform] duration-120 ease-out hover:-translate-y-px hover:border-border-strong hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
+                className="rounded-lg border border-border bg-card px-4 py-3 transition-[background-color,border-color,transform] duration-[120ms] ease-[var(--ease-out)] hover:-translate-y-px hover:border-border-strong hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 <p className="font-heading text-xl text-foreground">{member.team.name}</p>
                 <p className="mt-1 text-sm text-text-secondary">
@@ -249,7 +228,7 @@ export function PlayerDetailView({ player, stats }: { player: PlayerDetail; stat
             ))}
           </div>
         ) : (
-          <EmptyState>No squad history available.</EmptyState>
+          <EmptyState title="No squad history" description="This player has no linked IPL 2022 squad records." />
         )}
       </section>
 

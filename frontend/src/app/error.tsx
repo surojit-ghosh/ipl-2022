@@ -1,5 +1,10 @@
 "use client";
 
+import { RotateCcw } from "lucide-react";
+
+import { ErrorState } from "@/components/error-state";
+import { Button } from "@/components/ui/button";
+
 export default function ErrorPage({
   error,
   reset,
@@ -10,18 +15,15 @@ export default function ErrorPage({
   void error;
 
   return (
-    <div role="alert" className="flex min-h-48 flex-col justify-center gap-3">
-      <p className="font-medium text-destructive">Could not load this page</p>
-      <p className="text-sm text-text-secondary">
-        Something went wrong while loading this page.
-      </p>
-      <button
-        type="button"
-        className="w-fit text-sm text-primary underline-offset-4 hover:underline"
-        onClick={reset}
-      >
-        Try again
-      </button>
-    </div>
+    <ErrorState
+      title="Could not load this page"
+      description="Something went wrong while loading this Aiko view."
+      action={
+        <Button type="button" onClick={reset}>
+          <RotateCcw aria-hidden className="size-4" />
+          Try again
+        </Button>
+      }
+    />
   );
 }

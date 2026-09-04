@@ -2,13 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
 import { fetchMatchPage } from "./api";
-import { FilterBar, type FranchiseEntry } from "./components/filter-bar";
+import { FilterBar } from "./components/filter-bar";
 import { MatchGridCard, MatchGridCardSkeleton } from "./components/match-grid-card";
 import type { MatchCard, MatchListResponse } from "./types";
+import type { TeamSummary } from "@/features/teams/types";
 
 // ─── Grid ────────────────────────────────────────────────────────────────────
 
@@ -24,26 +28,30 @@ function MatchGrid({ matches }: { matches: MatchCard[] }) {
 
 // ─── HomeView ────────────────────────────────────────────────────────────────
 
-export function HomeView({ initialList }: { initialList: MatchListResponse }) {
-  // Team Filter
-  const [teamId, setTeamId] = useState<number | undefined>(undefined);
+export function HomeView({
+  initialList,
+  initialTeamId,
+  initialStage,
+  teams,
+}: {
+  initialList: MatchListResponse;
+  initialTeamId?: number;
+  initialStage?: "league" | "playoffs";
+  teams: TeamSummary[];
+}) {
+  const pathname = usePathname();
+  const [teamId, setTeamId] = useState<number | undefined>(initialTeamId);
+  const [stage, setStage] = useState<"league" | "playoffs" | undefined>(initialStage);
 
-  // Build franchise list from the initial match data (deduplicated)
-  const [teams] = useState<FranchiseEntry[]>(() => {
-    const seen = new Map<number, FranchiseEntry>();
-    for (const m of initialList.data) {
-      for (const t of [m.teamA, m.teamB]) {
-        if (!seen.has(t.id)) {
-          seen.set(t.id, {
-            id: t.id,
-            abbr: t.abbreviation ?? t.name.slice(0, 3).toUpperCase(),
-            name: t.name,
-          });
-        }
-      }
-    }
-    return [...seen.values()].sort((a, b) => a.abbr.localeCompare(b.abbr));
-  });
+  const updateUrl = (nextTeamId: number | undefined, nextStage: "league" | "playoffs" | undefined) => {
+    const params = new URLSearchParams(window.location.search);
+    if (nextTeamId) params.set("team", String(nextTeamId));
+    else params.delete("team");
+    if (nextStage) params.set("stage", nextStage);
+    else params.delete("stage");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
+  };
 
   // ── TanStack Infinite Query ─────────────────────────────────────────────
   const {
@@ -55,14 +63,14 @@ export function HomeView({ initialList }: { initialList: MatchListResponse }) {
     isError,
     error,
   } = useInfiniteQuery({
-    queryKey: ["matches", { teamId }],
-    queryFn: ({ pageParam = 1 }) => fetchMatchPage(pageParam, { teamId }),
+    queryKey: ["matches", { teamId, stage }],
+    queryFn: ({ pageParam = 1, signal }) => fetchMatchPage(pageParam, { teamId, stage, signal }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.meta.page < lastPage.meta.total_pages
         ? lastPage.meta.page + 1
         : undefined,
-    initialData: !teamId
+    initialData: teamId === initialTeamId && stage === initialStage
       ? {
           pages: [initialList],
           pageParams: [1],
@@ -99,9 +107,17 @@ export function HomeView({ initialList }: { initialList: MatchListResponse }) {
       {/* Team Filter Bar */}
       <FilterBar
         teamId={teamId}
+        stage={stage}
         totalItems={totalItems}
         teams={teams}
-        onTeamChange={setTeamId}
+        onTeamChange={(id) => {
+          setTeamId(id);
+          updateUrl(id, stage);
+        }}
+        onStageChange={(value) => {
+          setStage(value);
+          updateUrl(teamId, value);
+        }}
       />
 
       {/* Match Grid & Skeletons */}
@@ -112,11 +128,10 @@ export function HomeView({ initialList }: { initialList: MatchListResponse }) {
           ))}
         </div>
       ) : matches.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center">
-          <p className="font-sans text-sm text-muted-foreground">
-            No matches found for this team.
-          </p>
-        </div>
+        <EmptyState
+          title="No matches found"
+          description="The selected team and stage combination has no archived IPL 2022 matches."
+        />
       ) : (
         <>
           <MatchGrid matches={matches} />
@@ -132,18 +147,21 @@ export function HomeView({ initialList }: { initialList: MatchListResponse }) {
 
       {/* Error state */}
       {isError && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 py-4 text-center">
-          <p className="font-sans text-sm text-destructive" role="alert">
-            {error instanceof Error ? error.message : "Could not load matches"}{" "}
-            <button
-              type="button"
-              className="ml-2 font-semibold text-primary underline underline-offset-4 hover:opacity-80"
-              onClick={() => void fetchNextPage()}
-            >
-              Try again
-            </button>
-          </p>
-        </div>
+        <ErrorState
+          title="Match request failed"
+          description={
+            <>
+              {error instanceof Error ? error.message : "Could not load matches"}{" "}
+              <button
+                type="button"
+                className="font-semibold text-primary underline underline-offset-4 hover:opacity-80"
+                onClick={() => void fetchNextPage()}
+              >
+                Try again
+              </button>
+            </>
+          }
+        />
       )}
 
       {/* Infinite scroll loader / sentinel */}
@@ -161,7 +179,7 @@ export function HomeView({ initialList }: { initialList: MatchListResponse }) {
                 <span className="relative inline-flex size-2 rounded-full bg-primary" />
               </span>
               <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                Loading telemetry data…
+                Loading telemetry data...
               </span>
             </div>
           )}
@@ -175,9 +193,9 @@ export function HomeView({ initialList }: { initialList: MatchListResponse }) {
             No more matches
           </p>
           <p className="font-mono text-[11px] text-muted-foreground/70">
-            All {totalItems} matches in IPL 2022 loaded ·{" "}
+            All {totalItems} matches in IPL 2022 loaded{" "}
             <Link href="/standings" className="text-primary hover:underline underline-offset-2">
-              View league standings →
+              View league standings
             </Link>
           </p>
         </div>

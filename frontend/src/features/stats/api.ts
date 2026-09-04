@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api";
+import { fetchJson } from "@/lib/api";
 
 import type {
   BattingCategory,
@@ -11,9 +11,7 @@ import type {
 } from "./types";
 
 async function get<T>(path: string): Promise<T> {
-  const response = await fetch(apiUrl(path), { cache: "no-store" });
-  if (!response.ok) throw new Error("Could not load stats");
-  return response.json();
+  return fetchJson<T>(path);
 }
 
 export async function fetchStats(

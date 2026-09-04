@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useState } from "react";
+import { EntityImage } from "@/components/entity-image";
 import { cn } from "@/lib/utils";
 import type { TeamCard } from "../types";
 
@@ -18,32 +17,18 @@ const SIZE_MAP = {
 };
 
 export function TeamCrest({ team, size = "md", className }: TeamCrestProps) {
-  const [failed, setFailed] = useState(false);
   const src = team.logoUrl ?? team.thumbnailUrl;
   const { px, cls } = SIZE_MAP[size];
 
   return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md bg-muted border border-border font-mono font-semibold text-muted-foreground",
-        cls,
-        className,
-      )}
-      style={{ fontSize: px * 0.32 }}
-    >
-      {src && !failed ? (
-        <Image
-          src={src}
-          alt={team.abbreviation ?? team.name}
-          width={px}
-          height={px}
-          unoptimized
-          className="size-full object-contain p-0.5"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <span>{team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)}</span>
-      )}
-    </span>
+    <EntityImage
+      kind="team"
+      src={src}
+      alt={team.abbreviation ?? team.name}
+      width={px}
+      height={px}
+      className={cn("rounded-md border border-border", cls, className)}
+      imageClassName="object-contain p-0.5"
+    />
   );
 }
