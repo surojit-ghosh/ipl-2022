@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 
+const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 const nextConfig: NextConfig = {
   turbopack: {},
   async rewrites() {
     if (process.env.NODE_ENV === "production") return [];
-    return [{ source: "/api/:path*", destination: "http://localhost:3001/api/:path*" }];
+    return [{ source: "/api/:path*", destination: `${backendUrl}/api/:path*` }];
   },
   images: {
     unoptimized: true,

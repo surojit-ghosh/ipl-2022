@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 
+import { PageHeader } from "@/components/page-header";
+import { fetchTeams } from "./api";
 import type { TeamSummary } from "./types";
 
 function TeamMark({ team }: { team: TeamSummary }) {
@@ -45,14 +48,23 @@ function TeamCard({ team }: { team: TeamSummary }) {
   );
 }
 
-export function TeamsView({ teams }: { teams: TeamSummary[] }) {
+export function TeamsView({ teams: initialTeams }: { teams: TeamSummary[] }) {
+  const { data: teams = initialTeams } = useQuery({
+    queryKey: ["teams"],
+    queryFn: async () => {
+      const res = await fetchTeams();
+      return res.data;
+    },
+    initialData: initialTeams,
+  });
+
   return (
     <div className="space-y-8">
-      <header className="border-b border-border pb-6">
-        <p className="mb-1 text-sm text-muted-foreground">Team directory</p>
-        <h1 className="font-heading text-3xl text-foreground">IPL 2022 teams</h1>
-        <p className="mt-2 text-sm text-text-secondary">{teams.length} teams</p>
-      </header>
+      <PageHeader
+        eyebrow="IPL 2022 · Franchise Directory"
+        title="IPL 2022 Teams"
+        subtitle={`${teams.length} franchises competing in the 15th edition`}
+      />
 
       {teams.length ? (
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -52,34 +52,6 @@ const historicalResponse = response("Archived historical snapshot", {
   $ref: "#/components/schemas/JsonObject",
 });
 
-const battingCategories = [
-  "batting_most_runs",
-  "batting_most_runs_innings",
-  "batting_highest_strikerate",
-  "batting_highest_strikerate_innings",
-  "batting_highest_average",
-  "batting_most_run100",
-  "batting_most_run50",
-  "batting_most_run6",
-  "batting_most_run6_innings",
-  "batting_most_run4",
-  "batting_most_run4_innings",
-] as const;
-
-const bowlingCategories = [
-  "bowling_top_wicket_takers",
-  "bowling_best_economy_rates",
-  "bowling_best_economy_rates_innings",
-  "bowling_best_bowling_figures",
-  "bowling_best_strike_rates",
-  "bowling_best_strike_rates_innings",
-  "bowling_best_averages",
-  "bowling_most_runs_conceded_innings",
-  "bowling_four_wickets",
-  "bowling_five_wickets",
-  "bowling_maidens",
-] as const;
-
 export const openapiDocument = {
   openapi: "3.0.3",
   info: {
@@ -231,6 +203,7 @@ export const openapiDocument = {
           queryParameter("page_size", { type: "integer", minimum: 1, maximum: 100, default: 20 }),
           queryParameter("team_id", { type: "integer", minimum: 1 }),
           queryParameter("venue_id", { type: "integer", minimum: 1 }),
+          queryParameter("stage", { type: "string", enum: ["league", "playoffs"] }),
           queryParameter("order", { type: "string", enum: ["asc", "desc"], default: "asc" }),
         ],
         responses: { "200": listResponse, ...errorResponses },
@@ -309,7 +282,7 @@ export const openapiDocument = {
             enum: ["league", "playoffs", "all"],
             default: "all",
           }),
-          queryParameter("category", { type: "string", enum: battingCategories }),
+          queryParameter("category", { type: "string", enum: BATTING_CATEGORIES }),
         ],
         responses: { "200": historicalResponse, ...errorResponses },
       },
@@ -324,7 +297,7 @@ export const openapiDocument = {
             enum: ["league", "playoffs", "all"],
             default: "all",
           }),
-          queryParameter("category", { type: "string", enum: bowlingCategories }),
+          queryParameter("category", { type: "string", enum: BOWLING_CATEGORIES }),
         ],
         responses: { "200": historicalResponse, ...errorResponses },
       },
@@ -370,7 +343,23 @@ export const openapiDocument = {
       Error: {
         type: "object",
         required: ["error"],
-        properties: { error: { type: "string" } },
+        properties: {
+          error: {
+            type: "object",
+            required: ["code", "message"],
+            properties: {
+              code: {
+                type: "string",
+                enum: API_ERROR_CODES,
+              },
+              message: { type: "string" },
+              details: {
+                type: "object",
+                additionalProperties: { type: "array", items: { type: "string" } },
+              },
+            },
+          },
+        },
       },
       Status: {
         type: "object",
@@ -405,3 +394,5 @@ export const openapiDocument = {
     },
   },
 } as const;
+import { BATTING_CATEGORIES, BOWLING_CATEGORIES } from "@/features/stats/stats.constants";
+import { API_ERROR_CODES } from "@/lib/api-error";

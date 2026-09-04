@@ -1,214 +1,187 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
-import { SectionTitle } from "@/components/section-title";
-import { cn } from "@/lib/utils";
-
+import { PageHeader } from "@/components/page-header";
 import { fetchMatchPage } from "./api";
+import { FilterBar, type FranchiseEntry } from "./components/filter-bar";
+import { MatchGridCard, MatchGridCardSkeleton } from "./components/match-grid-card";
 import type { MatchCard, MatchListResponse } from "./types";
 
-function logoSrc(team: MatchCard["teamA"]) {
-  return team.logoUrl ?? team.thumbnailUrl;
-}
+// ─── Grid ────────────────────────────────────────────────────────────────────
 
-function TeamLogo({ team, large }: { team: MatchCard["teamA"]; large?: boolean }) {
-  const [failed, setFailed] = useState(false);
-  const src = logoSrc(team);
+function MatchGrid({ matches }: { matches: MatchCard[] }) {
   return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground",
-        large ? "size-10" : "size-8",
-      )}
-    >
-      {src && !failed ? (
-        <Image
-          src={src}
-          alt=""
-          width={large ? 40 : 32}
-          height={large ? 40 : 32}
-          unoptimized
-          className="size-full object-contain p-1"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <span className="text-[13px] font-medium text-muted-foreground">
-          {team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)}
-        </span>
-      )}
-    </span>
-  );
-}
-
-function inningForTeam(match: MatchCard, teamId: number) {
-  return match.innings.find((inning) => inning.battingTeamId === teamId);
-}
-
-function TeamRow({
-  match,
-  team,
-  large,
-}: {
-  match: MatchCard;
-  team: MatchCard["teamA"];
-  large?: boolean;
-}) {
-  const inning = inningForTeam(match, team.id);
-  const won = match.winningTeam?.id === team.id;
-  return (
-    <div className={cn("flex min-w-0 items-center gap-3", large ? "py-2" : "py-1.5")}>
-      <TeamLogo team={team} large={large} />
-      <span
-        className={cn(
-          "min-w-0 flex-1 wrap-break-word",
-          large && "text-base",
-          won ? "font-medium text-foreground" : "text-text-secondary",
-        )}
-      >
-        {team.name}
-      </span>
-      <span className={cn("shrink-0 font-mono tabular-nums text-foreground", large ? "text-xl" : "text-base")}>
-        {inning?.scores ?? "—"}
-        {inning?.overs ? (
-          <span className="ml-1.5 font-sans text-[13px] text-muted-foreground">
-            ({inning.overs})
-          </span>
-        ) : null}
-      </span>
+    <div className="aiko-match-list grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {matches.map((m, i) => (
+        <MatchGridCard key={m.id} match={m} featured={i === 0} />
+      ))}
     </div>
   );
 }
 
-function dateLabel(startAt: string | null) {
-  if (!startAt) return "Date TBC";
-  return new Date(startAt).toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Kolkata",
-  });
-}
-
-export function MatchBlock({ match, featured }: { match: MatchCard; featured?: boolean }) {
-  const meta = [match.subtitle, match.venue?.name].filter(Boolean).join(" · ");
-  const result = match.statusNote ?? match.statusText;
-  const title = match.shortTitle ?? match.title;
-  return (
-    <Link
-      href={`/matches/${match.id}`}
-      aria-label={`Open ${title}`}
-      className={cn(
-        "group block rounded-lg border transition-[background-color,border-color,transform] duration-120 ease-out focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.995]",
-        featured
-          ? "border-border bg-card px-4 py-5 hover:border-border-strong hover:bg-muted sm:px-5"
-          : "border-transparent bg-background px-3 py-3 hover:border-border hover:bg-card sm:px-4",
-      )}
-    >
-      <div className="mb-3 flex min-w-0 items-start justify-between gap-4 border-b border-border pb-3">
-        <div className="min-w-0">
-          {featured ? <p className="mb-1 text-sm font-medium text-primary">Latest result</p> : null}
-          <h2 className={cn("wrap-break-word font-heading text-foreground", featured ? "text-2xl" : "text-lg")}>
-            {featured ? title : dateLabel(match.startAt)}
-          </h2>
-          <p className="mt-1 text-sm text-text-secondary">{featured ? [dateLabel(match.startAt), meta].filter(Boolean).join(" · ") : meta}</p>
-        </div>
-      </div>
-      <TeamRow match={match} team={match.teamA} large={featured} />
-      <TeamRow match={match} team={match.teamB} large={featured} />
-      {result ? (
-        <p className="mt-3 border-t border-border pt-3 text-sm text-text-secondary">
-          {result}
-        </p>
-      ) : null}
-    </Link>
-  );
-}
+// ─── HomeView ────────────────────────────────────────────────────────────────
 
 export function HomeView({ initialList }: { initialList: MatchListResponse }) {
-  const [matches, setMatches] = useState(initialList.data);
-  const [page, setPage] = useState(initialList.meta.page);
-  const [totalPages, setTotalPages] = useState(initialList.meta.total_pages);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const loadingRef = useRef(false);
+  // Team Filter
+  const [teamId, setTeamId] = useState<number | undefined>(undefined);
 
-  const loadMore = useCallback(async () => {
-    if (loadingRef.current || page >= totalPages) return;
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await fetchMatchPage(page + 1);
-      setMatches((current) => {
-        const seen = new Set(current.map((match) => match.id));
-        return [...current, ...next.data.filter((match) => !seen.has(match.id))];
-      });
-      setPage(next.meta.page);
-      setTotalPages(next.meta.total_pages);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load matches");
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
+  // Build franchise list from the initial match data (deduplicated)
+  const [teams] = useState<FranchiseEntry[]>(() => {
+    const seen = new Map<number, FranchiseEntry>();
+    for (const m of initialList.data) {
+      for (const t of [m.teamA, m.teamB]) {
+        if (!seen.has(t.id)) {
+          seen.set(t.id, {
+            id: t.id,
+            abbr: t.abbreviation ?? t.name.slice(0, 3).toUpperCase(),
+            name: t.name,
+          });
+        }
+      }
     }
-  }, [page, totalPages]);
+    return [...seen.values()].sort((a, b) => a.abbr.localeCompare(b.abbr));
+  });
 
-  const hasMore = page < totalPages;
+  // ── TanStack Infinite Query ─────────────────────────────────────────────
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+  } = useInfiniteQuery({
+    queryKey: ["matches", { teamId }],
+    queryFn: ({ pageParam = 1 }) => fetchMatchPage(pageParam, { teamId }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.page < lastPage.meta.total_pages
+        ? lastPage.meta.page + 1
+        : undefined,
+    initialData: !teamId
+      ? {
+          pages: [initialList],
+          pageParams: [1],
+        }
+      : undefined,
+  });
+
+  const matches = data?.pages.flatMap((page) => page.data) ?? [];
+  const totalItems = data?.pages[0]?.meta.total_items ?? initialList.meta.total_items;
+
+  // ── Sentinel IntersectionObserver ───────────────────────────────────────
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const node = sentinelRef.current;
-    if (!node || !hasMore || error) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) void loadMore();
+    if (!node || !hasNextPage || isError) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+        void fetchNextPage();
+      }
     });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, error, loadMore, matches.length]);
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, [hasNextPage, isError, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div>
-      <header className="mb-8">
-        <SectionTitle>IPL 2022</SectionTitle>
-      </header>
+    <div className="space-y-6">
+      {/* Shared Page Header */}
+      <PageHeader
+        title="Match Results"
+        subtitle={`${totalItems} matches across 10 franchises · Ball-by-ball telemetry`}
+      />
 
-      {matches.length === 0 && !hasMore ? (
-        <p className="text-sm text-text-secondary">No matches in this season yet.</p>
-      ) : (
-        <section className="aiko-match-list space-y-3">
-          {matches.map((match, index) => (
-            <MatchBlock key={match.id} match={match} featured={index === 0} />
+      {/* Team Filter Bar */}
+      <FilterBar
+        teamId={teamId}
+        totalItems={totalItems}
+        teams={teams}
+        onTeamChange={setTeamId}
+      />
+
+      {/* Match Grid & Skeletons */}
+      {isLoading && matches.length === 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <MatchGridCardSkeleton key={i} />
           ))}
-        </section>
+        </div>
+      ) : matches.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border py-16 text-center">
+          <p className="font-sans text-sm text-muted-foreground">
+            No matches found for this team.
+          </p>
+        </div>
+      ) : (
+        <>
+          <MatchGrid matches={matches} />
+          {isFetchingNextPage && (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <MatchGridCardSkeleton key={`loading-${i}`} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {error ? (
-        <p className="mt-8 text-sm text-destructive" role="alert">
-          {error}.{" "}
-          <button
-            type="button"
-            className="text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
-            onClick={() => void loadMore()}
-          >
-            Try again
-          </button>
-        </p>
-      ) : null}
+      {/* Error state */}
+      {isError && (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 py-4 text-center">
+          <p className="font-sans text-sm text-destructive" role="alert">
+            {error instanceof Error ? error.message : "Could not load matches"}{" "}
+            <button
+              type="button"
+              className="ml-2 font-semibold text-primary underline underline-offset-4 hover:opacity-80"
+              onClick={() => void fetchNextPage()}
+            >
+              Try again
+            </button>
+          </p>
+        </div>
+      )}
 
-      {hasMore && !error ? (
+      {/* Infinite scroll loader / sentinel */}
+      {hasNextPage && !isError && (
         <div
           ref={sentinelRef}
-          className="mt-8 h-12"
-          aria-busy={loading}
-          aria-label={loading ? "Loading more matches" : undefined}
+          className="min-h-16 py-4 flex items-center justify-center"
+          aria-busy={isFetchingNextPage}
+          aria-label={isFetchingNextPage ? "Loading more matches" : undefined}
         >
-          {loading ? <p className="text-center text-sm text-muted-foreground">Loading</p> : null}
+          {isFetchingNextPage && (
+            <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-sm">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-primary" />
+              </span>
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                Loading telemetry data…
+              </span>
+            </div>
+          )}
         </div>
-      ) : null}
+      )}
+
+      {/* End of list */}
+      {!hasNextPage && matches.length > 0 && (
+        <div className="mt-8 flex flex-col items-center justify-center gap-1.5 border-t border-border/60 py-8 text-center">
+          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            No more matches
+          </p>
+          <p className="font-mono text-[11px] text-muted-foreground/70">
+            All {totalItems} matches in IPL 2022 loaded ·{" "}
+            <Link href="/standings" className="text-primary hover:underline underline-offset-2">
+              View league standings →
+            </Link>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

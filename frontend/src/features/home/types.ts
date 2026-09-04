@@ -39,4 +39,5 @@ export type MatchListResponse = {
   };
 };
 
-export const HOME_PAGE_SIZE = 10;
+export const HOME_PAGE_SIZE = 20;
+
