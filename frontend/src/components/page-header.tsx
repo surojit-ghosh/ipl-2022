@@ -26,13 +26,13 @@ export function PageHeader({
       <div className="min-w-0">
         {eyebrow && (
           <div className="mb-2.5 flex items-center gap-2">
-            <span className="aiko-live-pulse inline-block size-1.5 rounded-full bg-primary" />
-            <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            <span className="aiko-live-pulse inline-block size-1.5 rounded-full bg-primary" aria-hidden="true" />
+            <span className="font-mono text-[11px] font-medium text-muted-foreground">
               {eyebrow}
             </span>
           </div>
         )}
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+        <h1 className="wrap-break-word font-display text-3xl font-semibold leading-tight text-foreground md:text-4xl">
           {title}
         </h1>
         {subtitle && (

@@ -46,7 +46,7 @@ export function MatchGridCard({ match, featured }: MatchGridCardProps) {
       href={`/matches/${match.id}`}
       aria-label={`Open ${match.shortTitle ?? match.title}`}
       className={cn(
-        "group relative flex flex-col rounded-lg border border-border bg-card transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        "group relative flex flex-col rounded-lg border border-border bg-card transition-[background-color,border-color,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         featured
           ? "border-primary/30 hover:border-primary/60"
           : "hover:border-primary/30 hover:bg-card/80",

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { EmptyState } from "@/components/empty-state";
+import { StatCard as SharedStatCard } from "@/components/stat-card";
 import { MatchGridCard } from "@/features/home/components/match-grid-card";
 
 import type { VenueDetail, VenueStats } from "./types";
@@ -9,12 +11,7 @@ function statValue(value: string | number | null) {
 }
 
 function StatCard({ label, value }: { label: string; value: string | number | null }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <p className="text-xs tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 font-mono text-xl tabular-nums text-foreground">{statValue(value)}</p>
-    </div>
-  );
+  return <SharedStatCard label={label} value={statValue(value)} />;
 }
 
 export function VenueDetailView({ venue, stats }: { venue: VenueDetail; stats: VenueStats }) {
@@ -56,9 +53,7 @@ export function VenueDetailView({ venue, stats }: { venue: VenueDetail; stats: V
             {venue.matches.map((match) => <MatchGridCard key={match.id} match={match} />)}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">
-            No matches found.
-          </p>
+          <EmptyState title="No matches found" description="This venue has no linked IPL 2022 match records." />
         )}
       </section>
     </div>

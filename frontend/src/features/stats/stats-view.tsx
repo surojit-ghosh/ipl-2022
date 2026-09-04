@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
+import { EntityImage } from "@/components/entity-image";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { PageHeader } from "@/components/page-header";
 
 import { Button } from "@/components/ui/button";
+import { ChartContainer, ChartLegend } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 
 import { fetchStats } from "./api";
 import type {
@@ -67,53 +73,31 @@ function playerImage(player: BattingStat["player"]) {
 
 function PlayerMark({ player }: { player: BattingStat["player"] }) {
   const image = playerImage(player);
-  const [failed, setFailed] = useState(false);
-  const initials = player.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
   return (
-    <span className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium text-muted-foreground">
-      {image && !failed ? (
-        <Image
-          src={image}
-          alt=""
-          width={32}
-          height={32}
-          unoptimized
-          loading="lazy"
-          className="size-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        initials || "—"
-      )}
-    </span>
+    <EntityImage
+      kind="player"
+      src={image}
+      alt=""
+      width={32}
+      height={32}
+      className="size-8 rounded-full"
+      imageClassName="object-cover"
+    />
   );
 }
 
 function TeamMark({ team }: { team: TeamStat["team"] }) {
   const image = team.logoUrl ?? team.thumbnailUrl;
-  const [failed, setFailed] = useState(false);
   return (
-    <span className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium text-muted-foreground">
-      {image && !failed ? (
-        <Image
-          src={image}
-          alt=""
-          width={32}
-          height={32}
-          unoptimized
-          loading="lazy"
-          className="size-full object-contain p-1"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        team.abbreviation?.slice(0, 3) ?? team.name.slice(0, 2)
-      )}
-    </span>
+    <EntityImage
+      kind="team"
+      src={image}
+      alt=""
+      width={32}
+      height={32}
+      className="size-8 rounded-full"
+      imageClassName="object-contain p-1"
+    />
   );
 }
 
@@ -132,7 +116,7 @@ function HorizontalBarChart({
   formatValue: (value: number) => string;
   ariaLabel: string;
 }) {
-  if (!rows.length) return <EmptyState>No chart data for this scope.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No chart data" description="This scope does not include data for the selected metric." />;
   const displayedRows = rows.slice(0, 10);
   const max = Math.max(...displayedRows.map((row) => row.value), 1);
   const labelWidth = 178;
@@ -161,9 +145,7 @@ function HorizontalBarChart({
         const width = row.value ? Math.max((row.value / max) * barWidth, 3) : 0;
         return (
           <g key={row.id} transform={`translate(0 ${y})`}>
-            <title>
-              {row.label}: {formatValue(row.value)}
-            </title>
+            <title>{`${row.label}: ${formatValue(row.value)}`}</title>
             <text x="0" y="15" fill="var(--text-secondary)" fontSize="13">
               {row.label}
             </text>
@@ -173,14 +155,14 @@ function HorizontalBarChart({
               width={width}
               height="18"
               rx="3"
-              fill="var(--brand)"
+              fill="var(--color-primary)"
               opacity={index === 0 ? 1 : 0.72}
             />
             <text
               x={valueX}
               y="17"
               fill="var(--text-primary)"
-              fontFamily="var(--font-ibm-plex-mono)"
+              fontFamily="var(--font-mono)"
               fontSize="13"
               textAnchor="end"
             >
@@ -233,10 +215,20 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className="aiko-panel rounded-xl p-4 sm:p-5">
       <h3 className="font-heading text-2xl text-foreground">{title}</h3>
       <p className="mt-1 text-sm text-text-secondary">{description}</p>
-      <div className="mt-5">{children}</div>
+      <div className="mt-5">
+        <ChartContainer
+          config={{ primary: { label: "Selected metric", color: "var(--accent-primary)" } }}
+        >
+          {children}
+          <ChartLegend
+            className="mt-3"
+            config={{ primary: { label: "Selected metric", color: "var(--accent-primary)" } }}
+          />
+        </ChartContainer>
+      </div>
     </section>
   );
 }
@@ -374,10 +366,6 @@ function VenueScoringChart({ rows }: { rows: VenueStat[] }) {
   );
 }
 
-function TableFrame({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-x-auto rounded-lg border border-border bg-card">{children}</div>;
-}
-
 function battingMetric(row: BattingStat, category: BattingCategory) {
   switch (category) {
     case "batting_most_runs":
@@ -413,30 +401,29 @@ function metricLabel(category: BattingCategory) {
 }
 
 function BattingTable({ rows, category }: { rows: BattingStat[]; category: BattingCategory }) {
-  if (!rows.length) return <EmptyState>No batting data for this scope.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No batting data" description="This scope has no batting rows for the selected leaderboard." />;
   const inningsCategory = category.endsWith("_innings");
   return (
-    <TableFrame>
-      <table className="w-full min-w-225 text-sm">
-        <caption className="sr-only">{BATTING_CATEGORIES.find((item) => item.id === category)?.label}</caption>
-        <thead>
-          <tr>
-            <th className="w-12 px-4 py-3 text-left">#</th>
-            <th className="px-4 py-3 text-left">Player</th>
-            <th className="px-4 py-3 text-right">{metricLabel(category)}</th>
-            <th className="px-4 py-3 text-right">Inns</th>
-            <th className="px-4 py-3 text-right">Runs</th>
-            <th className="px-4 py-3 text-right">SR</th>
-            <th className="px-4 py-3 text-right">4s</th>
-            <th className="px-4 py-3 text-right">6s</th>
-            {inningsCategory ? <th className="px-4 py-3 text-left">Match</th> : null}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Batting leaderboard" minWidth="min-w-225">
+        <TableCaption className="sr-only">{BATTING_CATEGORIES.find((item) => item.id === category)?.label}</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Player</TableHead>
+            <TableHead className="text-right">{metricLabel(category)}</TableHead>
+            <TableHead className="text-right">Inns</TableHead>
+            <TableHead className="text-right">Runs</TableHead>
+            <TableHead className="text-right">SR</TableHead>
+            <TableHead className="text-right">4s</TableHead>
+            <TableHead className="text-right">6s</TableHead>
+            {inningsCategory ? <TableHead>Match</TableHead> : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.slice(0, 10).map((row, index) => (
-            <tr key={row.id} className="transition-colors duration-120 ease-out hover:bg-muted/60">
-              <td className="px-4 py-3 font-mono text-muted-foreground tabular-nums">{index + 1}</td>
-              <td className="px-4 py-3">
+            <TableRow key={row.id}>
+              <TableCell className="font-mono text-muted-foreground tabular-nums">{index + 1}</TableCell>
+              <TableCell>
                 <div className="flex min-w-40 items-center gap-2.5">
                   <PlayerMark player={row.player} />
                   <Link
@@ -446,17 +433,17 @@ function BattingTable({ rows, category }: { rows: BattingStat[]; category: Batti
                     {row.player.name}
                   </Link>
                 </div>
-              </td>
-              <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">
+              </TableCell>
+              <TableCell className="text-right font-mono font-medium tabular-nums">
                 {number(battingMetric(row, category), category.includes("strikerate") || category.includes("average") ? 2 : 0)}
-              </td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.innings}</td>
-              <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">{row.runs}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.strikeRate, 2)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.fours}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.sixes}</td>
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.innings}</TableCell>
+              <TableCell className="text-right font-mono font-medium tabular-nums">{row.runs}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.strikeRate, 2)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.fours}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.sixes}</TableCell>
               {inningsCategory ? (
-                <td className="px-4 py-3">
+                <TableCell>
                   {row.match ? (
                     <Link
                       href={`/matches/${row.match.id}`}
@@ -467,13 +454,12 @@ function BattingTable({ rows, category }: { rows: BattingStat[]; category: Batti
                   ) : (
                     "—"
                   )}
-                </td>
+                </TableCell>
               ) : null}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </TableFrame>
+        </TableBody>
+    </DataTable>
   );
 }
 
@@ -515,30 +501,29 @@ function bowlingMetricLabel(category: BowlingCategory) {
 }
 
 function BowlingTable({ rows, category }: { rows: BowlingStat[]; category: BowlingCategory }) {
-  if (!rows.length) return <EmptyState>No bowling data for this scope.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No bowling data" description="This scope has no bowling rows for the selected leaderboard." />;
   const inningsCategory = category.includes("_innings") || category === "bowling_best_bowling_figures";
   return (
-    <TableFrame>
-      <table className="w-full min-w-225 text-sm">
-        <caption className="sr-only">{BOWLING_CATEGORIES.find((item) => item.id === category)?.label}</caption>
-        <thead>
-          <tr>
-            <th className="w-12 px-4 py-3 text-left">#</th>
-            <th className="px-4 py-3 text-left">Player</th>
-            <th className="px-4 py-3 text-right">{bowlingMetricLabel(category)}</th>
-            <th className="px-4 py-3 text-right">Inns</th>
-            <th className="px-4 py-3 text-right">Wkts</th>
-            <th className="px-4 py-3 text-right">Econ</th>
-            <th className="px-4 py-3 text-right">Runs</th>
-            <th className="px-4 py-3 text-right">Mdns</th>
-            {inningsCategory ? <th className="px-4 py-3 text-left">Match</th> : null}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Bowling leaderboard" minWidth="min-w-225">
+        <TableCaption className="sr-only">{BOWLING_CATEGORIES.find((item) => item.id === category)?.label}</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Player</TableHead>
+            <TableHead className="text-right">{bowlingMetricLabel(category)}</TableHead>
+            <TableHead className="text-right">Inns</TableHead>
+            <TableHead className="text-right">Wkts</TableHead>
+            <TableHead className="text-right">Econ</TableHead>
+            <TableHead className="text-right">Runs</TableHead>
+            <TableHead className="text-right">Mdns</TableHead>
+            {inningsCategory ? <TableHead>Match</TableHead> : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.slice(0, 10).map((row, index) => (
-            <tr key={`${row.id}-${row.player.id}`} className="transition-colors duration-120 ease-out hover:bg-muted/60">
-              <td className="px-4 py-3 font-mono text-muted-foreground tabular-nums">{index + 1}</td>
-              <td className="px-4 py-3">
+            <TableRow key={`${row.id}-${row.player.id}`}>
+              <TableCell className="font-mono text-muted-foreground tabular-nums">{index + 1}</TableCell>
+              <TableCell>
                 <div className="flex min-w-40 items-center gap-2.5">
                   <PlayerMark player={row.player} />
                   <Link
@@ -548,15 +533,15 @@ function BowlingTable({ rows, category }: { rows: BowlingStat[]; category: Bowli
                     {row.player.name}
                   </Link>
                 </div>
-              </td>
-              <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">{bowlingMetric(row, category)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.innings}</td>
-              <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">{row.wickets}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.economy, 2)}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.runsConceded}</td>
-              <td className="px-4 py-3 text-right font-mono tabular-nums">{row.maidens}</td>
+              </TableCell>
+              <TableCell className="text-right font-mono font-medium tabular-nums">{bowlingMetric(row, category)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.innings}</TableCell>
+              <TableCell className="text-right font-mono font-medium tabular-nums">{row.wickets}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{number(row.economy, 2)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.runsConceded}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{row.maidens}</TableCell>
               {inningsCategory ? (
-                <td className="px-4 py-3">
+                <TableCell>
                   {row.match ? (
                     <Link
                       href={`/matches/${row.match.id}`}
@@ -567,49 +552,47 @@ function BowlingTable({ rows, category }: { rows: BowlingStat[]; category: Bowli
                   ) : (
                     "—"
                   )}
-                </td>
+                </TableCell>
               ) : null}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </TableFrame>
+        </TableBody>
+    </DataTable>
   );
 }
 
 function TeamPerformanceTable({ rows }: { rows: TeamStat[] }) {
-  if (!rows.length) return <EmptyState>No team data for this scope.</EmptyState>;
+  if (!rows.length) return <EmptyState title="No team data" description="This scope has no team performance rows." />;
   return (
-    <TableFrame>
-      <table className="w-full min-w-225 text-sm">
-        <caption className="sr-only">Team performance across the selected scope</caption>
-        <thead>
-          <tr>
-            <th className="w-12 px-4 py-3 text-left">#</th>
-            <th className="px-4 py-3 text-left">Team</th>
-            <th className="px-4 py-3 text-right">M</th>
-            <th className="px-4 py-3 text-right">W-L</th>
-            <th className="px-4 py-3 text-right">Runs</th>
-            <th className="px-4 py-3 text-right">Wkts</th>
-            <th className="px-4 py-3 text-right">Conceded</th>
-            <th className="px-4 py-3 text-right">50s</th>
-            <th className="px-4 py-3 text-right">100s</th>
-            <th className="px-4 py-3 text-right">High</th>
-            <th className="px-4 py-3 text-right">Low</th>
-            <th className="px-4 py-3 text-right">4W</th>
-            <th className="px-4 py-3 text-right">5W</th>
-            <th className="px-4 py-3 text-right">Extras</th>
-            <th className="px-4 py-3 text-right">Best run margin</th>
-            <th className="px-4 py-3 text-right">Best wicket margin</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <DataTable label="Team performance" minWidth="min-w-225">
+        <TableCaption className="sr-only">Team performance across the selected scope</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Team</TableHead>
+            <TableHead className="text-right">M</TableHead>
+            <TableHead className="text-right">W-L</TableHead>
+            <TableHead className="text-right">Runs</TableHead>
+            <TableHead className="text-right">Wkts</TableHead>
+            <TableHead className="text-right">Conceded</TableHead>
+            <TableHead className="text-right">50s</TableHead>
+            <TableHead className="text-right">100s</TableHead>
+            <TableHead className="text-right">High</TableHead>
+            <TableHead className="text-right">Low</TableHead>
+            <TableHead className="text-right">4W</TableHead>
+            <TableHead className="text-right">5W</TableHead>
+            <TableHead className="text-right">Extras</TableHead>
+            <TableHead className="text-right">Best run margin</TableHead>
+            <TableHead className="text-right">Best wicket margin</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {[...rows]
             .sort((a, b) => b.wins - a.wins || b.runs - a.runs)
             .map((row, index) => (
-              <tr key={row.team.id} className="transition-colors duration-120 ease-out hover:bg-muted/60">
-                <td className="px-4 py-3 font-mono text-muted-foreground tabular-nums">{index + 1}</td>
-                <td className="px-4 py-3">
+              <TableRow key={row.team.id}>
+                <TableCell className="font-mono text-muted-foreground tabular-nums">{index + 1}</TableCell>
+                <TableCell>
                   <Link
                     href={`/teams/${row.team.id}`}
                     className="flex min-w-40 items-center gap-2.5 rounded-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none"
@@ -617,35 +600,30 @@ function TeamPerformanceTable({ rows }: { rows: TeamStat[] }) {
                     <TeamMark team={row.team} />
                     <span className="min-w-0 wrap-break-word font-medium">{row.team.name}</span>
                   </Link>
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.matches}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.wins}-{row.losses}</td>
-                <td className="px-4 py-3 text-right font-mono font-medium tabular-nums">{row.runs}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.wickets}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.runsConceded}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.fifties}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.centuries}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.highestScore)}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{number(row.lowestScore)}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.fourWicketHauls}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.fiveWicketHauls}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">{row.extrasConceded}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.matches}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.wins}-{row.losses}</TableCell>
+                <TableCell className="text-right font-mono font-medium tabular-nums">{row.runs}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.wickets}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.runsConceded}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.fifties}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.centuries}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{number(row.highestScore)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{number(row.lowestScore)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.fourWicketHauls}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.fiveWicketHauls}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{row.extrasConceded}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
                   {number(row.highestWinMarginRuns)}
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
                   {number(row.highestWinMarginWickets)}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-        </tbody>
-      </table>
-    </TableFrame>
+        </TableBody>
+    </DataTable>
   );
-}
-
-function EmptyState({ children }: { children: string }) {
-  return <p className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-text-secondary">{children}</p>;
 }
 
 function SectionHeading({ title, description }: { title: string; description: string }) {
@@ -658,6 +636,7 @@ function SectionHeading({ title, description }: { title: string; description: st
 }
 
 export function StatsView({ initialData }: { initialData: StatsData }) {
+  const pathname = usePathname();
   const [scope, setScope] = useState<StatsScope>(initialData.scope);
   const [battingCategory, setBattingCategory] = useState<BattingCategory>(initialData.battingCategory);
   const [bowlingCategory, setBowlingCategory] = useState<BowlingCategory>(initialData.bowlingCategory);
@@ -681,6 +660,14 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
   const battingCategoryDetails = BATTING_CATEGORIES.find((item) => item.id === battingCategory) ?? BATTING_CATEGORIES[0];
   const bowlingCategoryDetails = BOWLING_CATEGORIES.find((item) => item.id === bowlingCategory) ?? BOWLING_CATEGORIES[0];
 
+  const updateUrl = (next: Partial<{ scope: StatsScope; batting: BattingCategory; bowling: BowlingCategory }>) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("scope", next.scope ?? scope);
+    params.set("batting", next.batting ?? battingCategory);
+    params.set("bowling", next.bowling ?? bowlingCategory);
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+  };
+
   return (
     <div className="space-y-8" aria-busy={loading}>
       <PageHeader
@@ -697,7 +684,10 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
               variant={scope === item.id ? "default" : "outline"}
               disabled={loading}
               aria-pressed={scope === item.id}
-              onClick={() => setScope(item.id)}
+              onClick={() => {
+                setScope(item.id);
+                updateUrl({ scope: item.id });
+              }}
             >
               {item.label}
             </Button>
@@ -706,9 +696,10 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
       </PageHeader>
 
       {isError ? (
-        <p className="rounded-lg border border-danger/30 bg-card px-4 py-3 text-sm text-danger" role="alert">
-          {error instanceof Error ? error.message : "Could not load stats"}. Choose another scope to retry.
-        </p>
+        <ErrorState
+          title="Stats request failed"
+          description={`${error instanceof Error ? error.message : "Could not load stats"}. Choose another scope to retry.`}
+        />
       ) : null}
 
       <section>
@@ -729,7 +720,15 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
           <SectionHeading title={battingCategoryDetails.label} description={battingCategoryDetails.description} />
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Batting stat
-            <Select value={battingCategory} disabled={loading} onValueChange={(value) => setBattingCategory(value as BattingCategory)}>
+            <Select
+              value={battingCategory}
+              disabled={loading}
+              onValueChange={(value) => {
+                const next = value as BattingCategory;
+                setBattingCategory(next);
+                updateUrl({ batting: next });
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {BATTING_CATEGORIES.map((item) => (
@@ -749,7 +748,15 @@ export function StatsView({ initialData }: { initialData: StatsData }) {
           <SectionHeading title={bowlingCategoryDetails.label} description={bowlingCategoryDetails.description} />
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Bowling stat
-            <Select value={bowlingCategory} disabled={loading} onValueChange={(value) => setBowlingCategory(value as BowlingCategory)}>
+            <Select
+              value={bowlingCategory}
+              disabled={loading}
+              onValueChange={(value) => {
+                const next = value as BowlingCategory;
+                setBowlingCategory(next);
+                updateUrl({ bowling: next });
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {BOWLING_CATEGORIES.map((item) => (

@@ -1,10 +1,10 @@
-import { apiUrl } from "@/lib/api";
+import { fetchJson } from "@/lib/api";
 
 import { HOME_PAGE_SIZE, type MatchListResponse } from "./types";
 
 export async function fetchMatchPage(
   page: number,
-  opts: { teamId?: number } = {},
+  opts: { teamId?: number; venueId?: number; stage?: "league" | "playoffs"; signal?: AbortSignal } = {},
 ): Promise<MatchListResponse> {
   const params = new URLSearchParams({
     page: String(page),
@@ -12,9 +12,8 @@ export async function fetchMatchPage(
     order: "desc",
   });
   if (opts.teamId) params.set("team_id", String(opts.teamId));
+  if (opts.venueId) params.set("venue_id", String(opts.venueId));
+  if (opts.stage) params.set("stage", opts.stage);
 
-  const response = await fetch(apiUrl(`/api/matches?${params}`), { cache: "no-store" });
-  if (!response.ok) throw new Error("Could not load matches");
-  return response.json();
+  return fetchJson<MatchListResponse>(`/api/matches?${params}`, { signal: opts.signal });
 }
-

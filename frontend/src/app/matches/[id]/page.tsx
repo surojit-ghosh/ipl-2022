@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import {
@@ -10,6 +11,11 @@ import {
 import { MatchDetailView } from "@/features/match-detail/match-detail-view";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Match Centre",
+  description: "IPL 2022 match centre with scorecard, commentary, wagon wheel, and historical snapshot data.",
+};
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
