@@ -1,10 +1,8 @@
-import { enumQuery } from "@/lib/query";
+import { z } from "zod";
 
 export type Scope = "league" | "playoffs" | "all";
 
-export function queryScope(value: unknown): Scope {
-  return enumQuery(value, ["league", "playoffs", "all"] as const, "scope", "all");
-}
+export const scopeSchema = z.enum(["league", "playoffs", "all"]).default("all");
 
 export function matchesScope(subtitle: string | null, scope: Scope): boolean {
   if (scope === "all") return true;

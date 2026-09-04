@@ -1,26 +1,7 @@
 import { database } from "@/lib/db";
-import { enumQuery } from "@/lib/query";
 import { matchesScope, oversToBalls, scoreRuns, type Scope } from "@/lib/scope";
 
-export const BATTING_CATEGORIES = [
-  "batting_most_runs",
-  "batting_most_runs_innings",
-  "batting_highest_strikerate",
-  "batting_highest_strikerate_innings",
-  "batting_highest_average",
-  "batting_most_run100",
-  "batting_most_run50",
-  "batting_most_run6",
-  "batting_most_run6_innings",
-  "batting_most_run4",
-  "batting_most_run4_innings",
-] as const;
-
-export type BattingCategory = (typeof BATTING_CATEGORIES)[number];
-
-export function queryBattingCategory(value: unknown): BattingCategory {
-  return enumQuery(value, BATTING_CATEGORIES, "category", "batting_most_runs");
-}
+import type { BattingCategory, BowlingCategory } from "./stats.constants";
 
 function rate(runs: number, balls: number) {
   return balls ? (runs * 100) / balls : null;
@@ -149,26 +130,6 @@ export async function battingStats(
       return difference || a.player.name.localeCompare(b.player.name);
     })
     .slice(0, 100);
-}
-
-export const BOWLING_CATEGORIES = [
-  "bowling_top_wicket_takers",
-  "bowling_best_economy_rates",
-  "bowling_best_economy_rates_innings",
-  "bowling_best_bowling_figures",
-  "bowling_best_strike_rates",
-  "bowling_best_strike_rates_innings",
-  "bowling_best_averages",
-  "bowling_most_runs_conceded_innings",
-  "bowling_four_wickets",
-  "bowling_five_wickets",
-  "bowling_maidens",
-] as const;
-
-export type BowlingCategory = (typeof BOWLING_CATEGORIES)[number];
-
-export function queryBowlingCategory(value: unknown): BowlingCategory {
-  return enumQuery(value, BOWLING_CATEGORIES, "category", "bowling_top_wicket_takers");
 }
 
 export async function bowlingStats(
@@ -470,4 +431,47 @@ export async function venueStats(scope: Scope = "all") {
       lowestFirstInningsScore: Math.min(...scores),
     }))
     .sort((a, b) => b.averageFirstInningsScore - a.averageFirstInningsScore);
+}
+
+export async function teamStats(scope: Scope = "all") {
+  const [performance, matches] = await Promise.all([
+    teamPerformanceStats(scope),
+    database().match.findMany({
+      select: { teamAId: true, teamBId: true, winningTeamId: true, subtitle: true },
+    }),
+  ]);
+  const matchCounts = new Map<number, { matches: number; wins: number; losses: number }>();
+  for (const match of matches.filter((item) => matchesScope(item.subtitle, scope))) {
+    for (const teamId of [match.teamAId, match.teamBId]) {
+      const counts = matchCounts.get(teamId) ?? { matches: 0, wins: 0, losses: 0 };
+      counts.matches += 1;
+      if (match.winningTeamId === teamId) counts.wins += 1;
+      else if (match.winningTeamId !== null) counts.losses += 1;
+      matchCounts.set(teamId, counts);
+    }
+  }
+  return performance
+    .map((stats) => ({
+      ...stats,
+      scope,
+      ...(matchCounts.get(stats.team.id) ?? { matches: 0, wins: 0, losses: 0 }),
+    }))
+    .sort((a, b) => b.wins - a.wins);
+}
+
+export async function statsSummary() {
+  const [matches, teams, players, batting, bowling] = await Promise.all([
+    database().match.count(),
+    database().team.count(),
+    database().player.count(),
+    battingStats("all"),
+    bowlingStats("all"),
+  ]);
+  return {
+    matches,
+    teams,
+    players,
+    topBatters: batting.slice(0, 5),
+    topBowlers: bowling.slice(0, 5),
+  };
 }

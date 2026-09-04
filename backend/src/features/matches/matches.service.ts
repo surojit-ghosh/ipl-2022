@@ -1,5 +1,5 @@
 import { database } from "@/lib/db";
-import { validTimezone } from "@/lib/query";
+import { validTimezone } from "@/lib/format";
 
 const teamSelect = {
   id: true,
@@ -222,5 +222,6 @@ export async function matchHistoricalSnapshot(id: number) {
 }
 
 export async function matchExists(id: number) {
-  return database().match.findUnique({ where: { id }, select: { id: true } });
+  const match = await database().match.findUnique({ where: { id }, select: { id: true } });
+  return match !== null;
 }
