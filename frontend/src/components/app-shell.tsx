@@ -113,11 +113,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <footer className="mx-auto w-full max-w-[1280px] border-t border-border px-6 py-5">
         <p className="font-mono text-[11px] text-muted-foreground">
           © 2024 Aiko Telemetry Lab · IPL 2022 archive ·{" "}
-          <a href="/stats" className="hover:text-primary transition-colors">Stats</a>
+          <Link href="/stats" className="hover:text-primary transition-colors">Stats</Link>
           {" · "}
-          <a href="/players" className="hover:text-primary transition-colors">Players</a>
+          <Link href="/players" className="hover:text-primary transition-colors">Players</Link>
           {" · "}
-          <a href="/standings" className="hover:text-primary transition-colors">Standings</a>
+          <Link href="/standings" className="hover:text-primary transition-colors">Standings</Link>
         </p>
       </footer>
 
